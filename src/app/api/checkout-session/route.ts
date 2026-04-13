@@ -4,7 +4,7 @@ import { getCurrentUserFromAuthHeader } from '@/lib/server/current-user';
 
 export const runtime = 'nodejs';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!.trim());
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('Authorization');

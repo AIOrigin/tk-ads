@@ -4,7 +4,7 @@ import { getCurrentUserFromAuthHeader } from '@/lib/server/current-user';
 
 export const runtime = 'nodejs';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!.trim());
 const TOOL_API_BASE = process.env.TOOL_API_INTERNAL_URL || process.env.NEXT_PUBLIC_TOOL_API_BASE_URL!;
 
 // In-memory set of used session IDs (for single-instance deployment)
