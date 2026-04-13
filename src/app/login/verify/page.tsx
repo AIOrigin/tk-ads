@@ -27,28 +27,40 @@ function VerifyContent() {
       setIsVerifying(true);
       setError(false);
       try {
-        const { access_token, is_first_login } = await verifyOTP(email, code);
-        // Set token first so getMe can use it
+        let access_token: string;
+        let is_first_login: boolean;
+        try {
+          const result = await verifyOTP(email, code);
+          access_token = result.access_token;
+          is_first_login = result.is_first_login;
+        } catch (err: unknown) {
+          // Verification code error
+          setError(true);
+          const verifyErr = err as { response?: { status: number } };
+          if (verifyErr?.response?.status === 401) {
+            toast.error('Code expired, please resend');
+          } else {
+            toast.error('Invalid code, please try again');
+          }
+          setIsVerifying(false);
+          setTimeout(() => {
+            setError(false);
+            otpRef.current?.reset();
+          }, 600);
+          return;
+        }
+
+        // Code verified successfully — now set up auth
         const { setToken } = await import('@/lib/api/client');
         setToken(access_token);
         const userInfo = await getMe();
         setAuth(access_token, userInfo);
         trackEvent(is_first_login ? 'sign_up' : 'login', { method: 'email' });
         router.replace(consumePostAuthRedirect(redirect));
-      } catch (err: unknown) {
-        setError(true);
-        const error = err as { response?: { status: number } };
-        if (error?.response?.status === 401) {
-          toast.error('Code expired, please resend');
-        } else {
-          toast.error('Invalid code, please try again');
-        }
+      } catch {
+        // getMe or other post-auth error — code was correct, just log in with what we have
+        toast.error('Sign-in succeeded but failed to load profile. Please refresh.');
         setIsVerifying(false);
-        // Clear inputs so user can re-enter
-        setTimeout(() => {
-          setError(false);
-          otpRef.current?.reset();
-        }, 600);
       }
     },
     [email, redirect, router, setAuth]
