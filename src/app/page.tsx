@@ -145,6 +145,45 @@ function BottomSheet({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const dragY = useRef(0);
+  const startY = useRef(0);
+  const isDragging = useRef(false);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const el = sheetRef.current;
+    if (!el) return;
+    // Only allow drag if scrolled to top
+    if (el.scrollTop > 0) return;
+    startY.current = e.touches[0].clientY;
+    isDragging.current = true;
+    dragY.current = 0;
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isDragging.current) return;
+    const delta = e.touches[0].clientY - startY.current;
+    if (delta < 0) {
+      dragY.current = 0;
+      return;
+    }
+    dragY.current = delta;
+    if (sheetRef.current) {
+      sheetRef.current.style.transform = `translateY(${delta}px)`;
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+    if (sheetRef.current) {
+      sheetRef.current.style.transform = '';
+    }
+    if (dragY.current > 100) {
+      onClose();
+    }
+  }, [onClose]);
+
   return (
     <>
       {/* Backdrop */}
@@ -162,7 +201,13 @@ function BottomSheet({
           isOpen ? 'translate-y-0' : 'translate-y-full'
         }`}
       >
-        <div className="bg-[#1a1a1a] rounded-t-3xl max-h-[85vh] overflow-y-auto">
+        <div
+          ref={sheetRef}
+          className="bg-[#1a1a1a] rounded-t-3xl max-h-[85vh] overflow-y-auto"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
           {/* Handle */}
           <div className="flex justify-center pt-3 pb-1">
             <div className="w-10 h-1 rounded-full bg-white/20" />
