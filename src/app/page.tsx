@@ -479,10 +479,19 @@ function HomeContent() {
         body: JSON.stringify({ templateId: selectedDance.id }),
       });
 
-      const { url } = await res.json();
-      if (!url) throw new Error('No checkout URL');
+      const data = await res.json();
 
-      window.location.href = url;
+      if (!res.ok) {
+        if (res.status === 401) {
+          router.replace(buildLoginRedirect(getCurrentPathWithSearch()));
+          return;
+        }
+        throw new Error(data.error || 'Failed to create checkout session');
+      }
+
+      if (!data.url) throw new Error('No checkout URL returned');
+
+      window.location.href = data.url;
      } catch (error) {
        const message = error instanceof Error ? error.message : 'Failed to start payment. Please try again.';
        toast.error(message);
