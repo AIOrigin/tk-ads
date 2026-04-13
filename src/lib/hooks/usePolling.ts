@@ -36,7 +36,7 @@ export function usePolling(taskId: string | null) {
         setStatus(task);
 
         if (task.status === 'completed') {
-          trackEvent('video_ready', { taskId: taskId!, templateId: task.templateId || '' });
+          trackEvent('video_ready', { taskId: taskId!, templateId: task.template_id || '' });
           setIsPolling(false);
           return;
         }

@@ -129,7 +129,7 @@ function ProgressContent() {
   }, [startPolling, taskId]);
 
   function handleDownload() {
-    const videoUrl = status?.videos?.[0]?.videoUrl;
+    const videoUrl = status?.videos?.[0]?.video_url;
     if (!videoUrl) return;
 
     const a = document.createElement('a');
@@ -162,17 +162,17 @@ function ProgressContent() {
     return <FailedView onRetry={handleRetry} />;
   }
 
-  if (status?.status === 'completed' && status.videos?.[0]?.videoUrl) {
+  if (status?.status === 'completed' && status.videos?.[0]?.video_url) {
     localStorage.removeItem(PENDING_SESSION_ID_KEY);
     localStorage.removeItem(PENDING_TASK_ID_KEY);
     saveVideo({
       taskId,
-      videoUrl: status.videos[0].videoUrl,
-      createdAt: status.completedAt || new Date().toISOString(),
+      videoUrl: status.videos[0].video_url,
+      createdAt: status.completed_at || new Date().toISOString(),
     });
     return (
       <CompletedView
-        videoUrl={status.videos[0].videoUrl}
+        videoUrl={status.videos[0].video_url}
         onDownload={handleDownload}
         onCreateAnother={handleCreateAnother}
       />

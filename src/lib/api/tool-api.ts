@@ -50,26 +50,26 @@ export interface VideoOutput {
   id: string;
   status: string;
   progress: number;
-  videoUrl: string | null;
-  startedAt: string | null;
-  completedAt: string | null;
-  durationSeconds: number | null;
-  sizeBytes: number | null;
+  video_url: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  duration_seconds: number | null;
+  size_bytes: number | null;
   format: string | null;
 }
 
 export interface TaskStatus {
-  taskId: string;
+  task_id: string;
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'deleted';
   progress: number;
-  generationMode: string;
-  templateId: string | null;
-  modelId: string;
+  generation_mode: string;
+  template_id: string | null;
+  model_id: string;
   provider: string;
   prompt: string;
   videos: VideoOutput[];
-  createdAt: string;
-  completedAt: string | null;
+  created_at: string;
+  completed_at: string | null;
 }
 
 export interface BatchStatusResponse {
