@@ -12,8 +12,8 @@ export function GoogleSignInButton({ redirect }: { redirect: string }) {
     setIsLoading(true);
     try {
       savePostAuthRedirect(sanitizeRedirect(redirect));
-      const { redirect_url } = await getGoogleSignInUrl();
-      window.location.href = redirect_url;
+      const { redirectUrl } = await getGoogleSignInUrl();
+      window.location.href = redirectUrl;
     } catch {
       toast.error('Failed to start Google sign-in');
       setIsLoading(false);

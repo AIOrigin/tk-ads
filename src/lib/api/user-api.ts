@@ -9,19 +9,19 @@ export async function sendOTP(email: string): Promise<void> {
 export async function verifyOTP(
   email: string,
   code: string
-): Promise<{ access_token: string; is_first_login: boolean }> {
+): Promise<{ accessToken: string; isFirstLogin: boolean }> {
   return userApi
     .post('v1/auth/verify-code', { json: { email, code } })
     .json();
 }
 
-export async function getGoogleSignInUrl(): Promise<{ redirect_url: string }> {
+export async function getGoogleSignInUrl(): Promise<{ redirectUrl: string }> {
   return userApi.get('v1/auth/google/sign-in').json();
 }
 
 export async function verifyGoogleCode(
   code: string
-): Promise<{ access_token: string; is_first_login: boolean }> {
+): Promise<{ accessToken: string; isFirstLogin: boolean }> {
   return userApi
     .post('v1/auth/google/verify-code', { json: { code } })
     .json();
@@ -35,10 +35,10 @@ export interface User {
   name: string | null;
   avatar: string | null;
   status: 'active' | 'suspended' | 'deleted';
-  invite_code: string;
-  created_at: string;
-  updated_at: string;
-  daily_credit: boolean;
+  inviteCode: string;
+  createdAt: string;
+  updatedAt: string;
+  dailyCredit: boolean;
 }
 
 export async function getMe(): Promise<User> {

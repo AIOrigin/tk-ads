@@ -22,11 +22,11 @@ function CallbackContent() {
 
     async function handleCallback() {
       try {
-        const { access_token, is_first_login } = await verifyGoogleCode(code!);
-        setToken(access_token);
+        const { accessToken, isFirstLogin } = await verifyGoogleCode(code!);
+        setToken(accessToken);
         const user = await getMe();
-        setAuth(access_token, user);
-        trackEvent(is_first_login ? 'sign_up' : 'login', { method: 'google' });
+        setAuth(accessToken, user);
+        trackEvent(isFirstLogin ? 'sign_up' : 'login', { method: 'google' });
         router.replace(consumePostAuthRedirect('/'));
       } catch {
         toast.error('Google sign-in failed. Please try again.');

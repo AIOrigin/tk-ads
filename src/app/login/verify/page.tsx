@@ -27,12 +27,12 @@ function VerifyContent() {
       setIsVerifying(true);
       setError(false);
       try {
-        let access_token: string;
-        let is_first_login: boolean;
+        let accessToken: string;
+        let isFirstLogin: boolean;
         try {
           const result = await verifyOTP(email, code);
-          access_token = result.access_token;
-          is_first_login = result.is_first_login;
+          accessToken = result.accessToken;
+          isFirstLogin = result.isFirstLogin;
         } catch (err: unknown) {
           // Verification code error
           setError(true);
@@ -52,10 +52,10 @@ function VerifyContent() {
 
         // Code verified successfully — now set up auth
         const { setToken } = await import('@/lib/api/client');
-        setToken(access_token);
+        setToken(accessToken);
         const userInfo = await getMe();
-        setAuth(access_token, userInfo);
-        trackEvent(is_first_login ? 'sign_up' : 'login', { method: 'email' });
+        setAuth(accessToken, userInfo);
+        trackEvent(isFirstLogin ? 'sign_up' : 'login', { method: 'email' });
         router.replace(consumePostAuthRedirect(redirect));
       } catch {
         // getMe or other post-auth error — code was correct, just log in with what we have
