@@ -27,13 +27,13 @@ function VerifyContent() {
       setIsVerifying(true);
       setError(false);
       try {
-        const { accessToken, isFirstLogin } = await verifyOTP(email, code);
+        const { access_token, is_first_login } = await verifyOTP(email, code);
         // Set token first so getMe can use it
         const { setToken } = await import('@/lib/api/client');
-        setToken(accessToken);
+        setToken(access_token);
         const userInfo = await getMe();
-        setAuth(accessToken, userInfo);
-        trackEvent(isFirstLogin ? 'sign_up' : 'login', { method: 'email' });
+        setAuth(access_token, userInfo);
+        trackEvent(is_first_login ? 'sign_up' : 'login', { method: 'email' });
         router.replace(consumePostAuthRedirect(redirect));
       } catch (err: unknown) {
         setError(true);

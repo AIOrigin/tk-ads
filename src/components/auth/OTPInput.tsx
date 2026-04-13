@@ -14,34 +14,38 @@ export interface OTPInputHandle {
 
 export const OTPInput = forwardRef<OTPInputHandle, OTPInputProps>(function OTPInput({ length = 6, onComplete, error }, ref) {
   const [values, setValues] = useState<string[]>(Array(length).fill(''));
+  const valuesRef = useRef<string[]>(Array(length).fill(''));
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
+  const isProgrammaticFocus = useRef(false);
 
   const focusInput = useCallback(
     (index: number) => {
       if (index >= 0 && index < length) {
+        isProgrammaticFocus.current = true;
         inputsRef.current[index]?.focus();
       }
     },
     [length]
   );
 
-  // Find the first empty slot
-  const firstEmptyIndex = useCallback(() => {
-    const idx = values.findIndex((v) => v === '');
-    return idx === -1 ? length - 1 : idx;
-  }, [values, length]);
-
   function handleFocus(index: number) {
-    // Always redirect focus to the first empty box
-    const target = firstEmptyIndex();
+    // Skip redirect if focus was set programmatically (e.g. after typing a digit)
+    if (isProgrammaticFocus.current) {
+      isProgrammaticFocus.current = false;
+      return;
+    }
+    // User tapped a box — redirect to first empty slot
+    const firstEmpty = valuesRef.current.findIndex((v) => v === '');
+    const target = firstEmpty === -1 ? length - 1 : firstEmpty;
     if (index !== target) {
       focusInput(target);
     }
   }
 
-  // Allow resetting after error
   function reset() {
-    setValues(Array(length).fill(''));
+    const empty = Array(length).fill('');
+    setValues(empty);
+    valuesRef.current = empty;
     setTimeout(() => focusInput(0), 0);
   }
 
@@ -51,9 +55,10 @@ export const OTPInput = forwardRef<OTPInputHandle, OTPInputProps>(function OTPIn
     if (!/^\d*$/.test(value)) return;
 
     const digit = value.slice(-1);
-    const next = [...values];
+    const next = [...valuesRef.current];
     next[index] = digit;
     setValues(next);
+    valuesRef.current = next;
 
     if (digit && index < length - 1) {
       focusInput(index + 1);
@@ -65,7 +70,7 @@ export const OTPInput = forwardRef<OTPInputHandle, OTPInputProps>(function OTPIn
   }
 
   function handleKeyDown(index: number, e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Backspace' && !values[index] && index > 0) {
+    if (e.key === 'Backspace' && !valuesRef.current[index] && index > 0) {
       focusInput(index - 1);
     }
   }
@@ -75,11 +80,12 @@ export const OTPInput = forwardRef<OTPInputHandle, OTPInputProps>(function OTPIn
     const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, length);
     if (!pasted) return;
 
-    const next = [...values];
+    const next = [...valuesRef.current];
     for (let i = 0; i < pasted.length; i++) {
       next[i] = pasted[i];
     }
     setValues(next);
+    valuesRef.current = next;
 
     if (pasted.length >= length) {
       onComplete(next.join(''));
