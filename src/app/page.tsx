@@ -17,6 +17,7 @@ import {
   getCurrentPathWithSearch,
   PENDING_PHOTO_READY_KEY,
   PENDING_SESSION_ID_KEY,
+  PENDING_TASK_ID_KEY,
   PENDING_TEMPLATE_KEY,
   PHOTO_DB_NAME,
   PHOTO_KEY,
@@ -269,6 +270,15 @@ function HomeContent() {
   const sessionId = searchParams.get('session_id');
   const canceled = searchParams.get('canceled');
   const shouldResume = searchParams.get('resume') === '1';
+
+  // If there's a pending task, resume to its progress page
+  useEffect(() => {
+    if (sessionId || canceled || shouldResume) return; // don't redirect if explicitly coming back
+    const pendingTaskId = localStorage.getItem(PENDING_TASK_ID_KEY);
+    if (pendingTaskId) {
+      router.replace(`/create/${pendingTaskId}`);
+    }
+  }, [router, sessionId, canceled, shouldResume]);
 
   const { isAuthenticated } = useAuth();
   const { selectTemplate } = useCreateStore();

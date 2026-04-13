@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, KeyboardEvent, ClipboardEvent } from 'react';
+import { useState, useRef, useCallback, useImperativeHandle, forwardRef, KeyboardEvent, ClipboardEvent } from 'react';
 
 interface OTPInputProps {
   length?: number;
@@ -8,7 +8,11 @@ interface OTPInputProps {
   error?: boolean;
 }
 
-export function OTPInput({ length = 6, onComplete, error }: OTPInputProps) {
+export interface OTPInputHandle {
+  reset: () => void;
+}
+
+export const OTPInput = forwardRef<OTPInputHandle, OTPInputProps>(function OTPInput({ length = 6, onComplete, error }, ref) {
   const [values, setValues] = useState<string[]>(Array(length).fill(''));
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -20,6 +24,28 @@ export function OTPInput({ length = 6, onComplete, error }: OTPInputProps) {
     },
     [length]
   );
+
+  // Find the first empty slot
+  const firstEmptyIndex = useCallback(() => {
+    const idx = values.findIndex((v) => v === '');
+    return idx === -1 ? length - 1 : idx;
+  }, [values, length]);
+
+  function handleFocus(index: number) {
+    // Always redirect focus to the first empty box
+    const target = firstEmptyIndex();
+    if (index !== target) {
+      focusInput(target);
+    }
+  }
+
+  // Allow resetting after error
+  function reset() {
+    setValues(Array(length).fill(''));
+    setTimeout(() => focusInput(0), 0);
+  }
+
+  useImperativeHandle(ref, () => ({ reset }));
 
   function handleChange(index: number, value: string) {
     if (!/^\d*$/.test(value)) return;
@@ -73,8 +99,9 @@ export function OTPInput({ length = 6, onComplete, error }: OTPInputProps) {
           maxLength={1}
           value={val}
           onChange={(e) => handleChange(i, e.target.value)}
+          onFocus={() => handleFocus(i)}
           onKeyDown={(e) => handleKeyDown(i, e)}
-          onPaste={i === 0 ? handlePaste : undefined}
+          onPaste={handlePaste}
           autoFocus={i === 0}
           className={`w-12 h-14 text-2xl text-center text-white bg-white/[0.06] border rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 transition-colors ${
             error ? 'border-red-500 animate-shake' : 'border-white/15'
@@ -83,4 +110,4 @@ export function OTPInput({ length = 6, onComplete, error }: OTPInputProps) {
       ))}
     </div>
   );
-}
+});

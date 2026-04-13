@@ -4,6 +4,7 @@ const POST_AUTH_REDIRECT_KEY = 'dance_post_auth_redirect';
 export const PENDING_TEMPLATE_KEY = 'dance_pending_template';
 export const PENDING_PHOTO_READY_KEY = 'dance_pending_photo_saved';
 export const PENDING_SESSION_ID_KEY = 'dance_pending_session_id';
+export const PENDING_TASK_ID_KEY = 'dance_pending_task_id';
 export const PHOTO_DB_NAME = 'dance_photo_db';
 export const PHOTO_STORE = 'photos';
 export const PHOTO_KEY = 'pending_photo';

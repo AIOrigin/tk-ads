@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useCallback, Suspense } from 'react';
+import { useState, useCallback, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { OTPInput } from '@/components/auth/OTPInput';
+import { OTPInput, type OTPInputHandle } from '@/components/auth/OTPInput';
 import { verifyOTP, sendOTP, getMe } from '@/lib/api/user-api';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { toast } from '@/components/ui/Toast';
@@ -20,6 +20,7 @@ function VerifyContent() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [error, setError] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const otpRef = useRef<OTPInputHandle>(null);
 
   const handleComplete = useCallback(
     async (code: string) => {
@@ -43,6 +44,11 @@ function VerifyContent() {
           toast.error('Invalid code, please try again');
         }
         setIsVerifying(false);
+        // Clear inputs so user can re-enter
+        setTimeout(() => {
+          setError(false);
+          otpRef.current?.reset();
+        }, 600);
       }
     },
     [email, redirect, router, setAuth]
@@ -81,7 +87,7 @@ function VerifyContent() {
       </div>
 
       <div className="space-y-6">
-        <OTPInput onComplete={handleComplete} error={error} />
+        <OTPInput ref={otpRef} onComplete={handleComplete} error={error} />
 
         {isVerifying && (
           <div className="flex justify-center">

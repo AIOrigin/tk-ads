@@ -6,7 +6,7 @@ import { AuthGuard } from '@/components/layout/AuthGuard';
 import { Button } from '@/components/ui/Button';
 import { usePolling } from '@/lib/hooks/usePolling';
 import { trackEvent } from '@/lib/analytics';
-import { PENDING_SESSION_ID_KEY } from '@/lib/funnel';
+import { PENDING_SESSION_ID_KEY, PENDING_TASK_ID_KEY } from '@/lib/funnel';
 
 function GeneratingView({ progress }: { progress: number }) {
   return (
@@ -21,7 +21,7 @@ function GeneratingView({ progress }: { progress: number }) {
       <h2 className="text-lg font-semibold text-white mb-1.5">
         Creating your video
       </h2>
-      <p className="text-[13px] text-white/50 mb-8">Usually takes about 1 minute</p>
+      <p className="text-[13px] text-white/50 mb-8">Usually takes 5–10 minutes</p>
 
       {/* Progress bar */}
       <div className="w-full max-w-[240px]">
@@ -123,8 +123,10 @@ function ProgressContent() {
   const { status, error, startPolling } = usePolling(taskId);
 
   useEffect(() => {
+    // Save taskId so user can return after leaving
+    localStorage.setItem(PENDING_TASK_ID_KEY, taskId);
     startPolling();
-  }, [startPolling]);
+  }, [startPolling, taskId]);
 
   function handleDownload() {
     const videoUrl = status?.videos?.[0]?.videoUrl;
@@ -148,6 +150,7 @@ function ProgressContent() {
 
   function handleCreateAnother() {
     localStorage.removeItem(PENDING_SESSION_ID_KEY);
+    localStorage.removeItem(PENDING_TASK_ID_KEY);
     router.push('/');
   }
 
@@ -161,6 +164,7 @@ function ProgressContent() {
 
   if (status?.status === 'completed' && status.videos?.[0]?.videoUrl) {
     localStorage.removeItem(PENDING_SESSION_ID_KEY);
+    localStorage.removeItem(PENDING_TASK_ID_KEY);
     return (
       <CompletedView
         videoUrl={status.videos[0].videoUrl}
