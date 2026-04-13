@@ -16,6 +16,7 @@ import {
   buildLoginRedirect,
   getCurrentPathWithSearch,
   PENDING_PHOTO_READY_KEY,
+  PENDING_SESSION_ID_KEY,
   PENDING_TEMPLATE_KEY,
   PHOTO_DB_NAME,
   PHOTO_KEY,
@@ -397,6 +398,7 @@ function HomeContent() {
 
         const paidSessionInfo = await fetchPaidSessionInfo();
         if (paidSessionInfo?.taskId) {
+          localStorage.setItem(PENDING_SESSION_ID_KEY, sessionId!);
           router.replace(`/create/${paidSessionInfo.taskId}`);
           return;
         }
@@ -468,6 +470,7 @@ function HomeContent() {
         });
 
         localStorage.removeItem(PENDING_TEMPLATE_KEY);
+        localStorage.setItem(PENDING_SESSION_ID_KEY, sessionId!);
         await clearPhotoDB();
 
         router.replace(`/create/${result.task_id}`);
@@ -551,6 +554,7 @@ function HomeContent() {
         });
 
         localStorage.removeItem(PENDING_TEMPLATE_KEY);
+        localStorage.setItem(PENDING_SESSION_ID_KEY, sessionId);
         await clearPhotoDB();
         setPaidTemplateRecovered(false);
         router.replace(`/create/${result.task_id}`);
