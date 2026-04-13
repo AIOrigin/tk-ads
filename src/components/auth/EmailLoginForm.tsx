@@ -47,7 +47,7 @@ export function EmailLoginForm({ redirect }: { redirect: string }) {
         onChange={(e) => setEmail(e.target.value)}
         required
         autoComplete="email"
-        className="w-full h-[48px] px-4 border border-gray-200 rounded-xl text-[14px] text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-400 transition-all"
+        className="w-full h-[48px] px-4 border border-white/15 rounded-xl text-[14px] text-white bg-white/[0.06] placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-400 transition-all"
       />
       <Button
         type="submit"

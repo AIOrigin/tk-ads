@@ -76,8 +76,8 @@ export function OTPInput({ length = 6, onComplete, error }: OTPInputProps) {
           onKeyDown={(e) => handleKeyDown(i, e)}
           onPaste={i === 0 ? handlePaste : undefined}
           autoFocus={i === 0}
-          className={`w-12 h-14 text-2xl text-center border rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 transition-colors ${
-            error ? 'border-red-500 animate-shake' : 'border-gray-300'
+          className={`w-12 h-14 text-2xl text-center text-white bg-white/[0.06] border rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 transition-colors ${
+            error ? 'border-red-500 animate-shake' : 'border-white/15'
           }`}
         />
       ))}

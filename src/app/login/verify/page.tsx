@@ -68,15 +68,15 @@ function VerifyContent() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col px-6 pt-16">
-      <button type="button" onClick={() => router.back()} className="mb-8 text-gray-500 self-start">
+    <div className="min-h-screen flex flex-col px-6 pt-16 bg-black">
+      <button type="button" onClick={() => router.back()} className="mb-8 text-white/50 self-start hover:text-white/80 transition-colors">
         &larr; Back
       </button>
 
       <div className="text-center mb-10">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Enter the code</h1>
-        <p className="text-gray-500">
-          sent to <span className="font-medium text-gray-700">{email}</span>
+        <h1 className="text-2xl font-bold text-white mb-2">Enter the code</h1>
+        <p className="text-white/50">
+          sent to <span className="font-medium text-white">{email}</span>
         </p>
       </div>
 
@@ -90,7 +90,7 @@ function VerifyContent() {
         )}
 
         <div className="text-center">
-          <p className="text-sm text-gray-400 mb-2">Didn&apos;t get the code?</p>
+          <p className="text-sm text-white/40 mb-2">Didn&apos;t get the code?</p>
           <Button
             variant="ghost"
             size="sm"

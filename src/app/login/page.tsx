@@ -21,11 +21,11 @@ function LoginContent() {
   if (isLoading || isAuthenticated) return null;
 
   return (
-    <div className="min-h-screen flex flex-col px-6 pt-14">
+    <div className="min-h-screen flex flex-col px-6 pt-14 bg-black">
       <button
         type="button"
         onClick={() => router.back()}
-        className="mb-10 text-gray-400 text-sm self-start flex items-center gap-1 hover:text-gray-600 transition-colors"
+        className="mb-10 text-white/50 text-sm self-start flex items-center gap-1 hover:text-white/80 transition-colors"
       >
         <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
@@ -39,18 +39,18 @@ function LoginContent() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
           </svg>
         </div>
-        <h1 className="text-xl font-bold text-gray-900 tracking-tight">Sign in to continue</h1>
-        <p className="text-[13px] text-gray-400 mt-1">Create your AI dance video</p>
+        <h1 className="text-xl font-bold text-white tracking-tight">Sign in to continue</h1>
+        <p className="text-[13px] text-white/40 mt-1">Create your AI dance video</p>
       </div>
 
       <div className="space-y-4">
         <EmailLoginForm redirect={redirect} />
       </div>
 
-      <p className="mt-auto pb-8 text-center text-[11px] text-gray-300 leading-relaxed">
+      <p className="mt-auto pb-8 text-center text-[11px] text-white/30 leading-relaxed">
         By continuing you agree to our{' '}
-        <a href="/terms" className="underline hover:text-gray-500">Terms</a> &{' '}
-        <a href="/privacy" className="underline hover:text-gray-500">Privacy Policy</a>
+        <a href="/terms" className="underline hover:text-white/60">Terms</a> &{' '}
+        <a href="/privacy" className="underline hover:text-white/60">Privacy Policy</a>
       </p>
     </div>
   );
