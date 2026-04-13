@@ -110,9 +110,11 @@ function DanceSelector({
               >
                 <video
                   src={t.motionVideoUrl}
+                  autoPlay
+                  loop
                   muted
                   playsInline
-                  preload="metadata"
+                  preload="auto"
                   className="w-full h-full object-cover"
                 />
                 {/* Duration */}

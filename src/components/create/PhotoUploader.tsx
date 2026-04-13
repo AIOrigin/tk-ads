@@ -60,7 +60,6 @@ export function PhotoUploader({
         ref={inputRef}
         type="file"
         accept="image/jpeg,image/png,image/webp"
-        capture="user"
         onChange={handleChange}
         className="hidden"
       />
