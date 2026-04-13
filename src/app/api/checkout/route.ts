@@ -17,12 +17,7 @@ export async function POST(req: NextRequest) {
 
     const { templateId } = await req.json();
 
-    const forwardedProto = req.headers.get('x-forwarded-proto') || 'https';
-    const proto = forwardedProto.split(',')[0].trim();
-    const host = req.headers.get('host') || 'localhost:3000';
-    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || `${proto}://${host}`).replace(/\/+$/, '');
-
-    console.log('[checkout] appUrl:', appUrl);
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
 
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
