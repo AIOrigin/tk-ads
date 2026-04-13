@@ -128,15 +128,26 @@ function ProgressContent() {
     startPolling();
   }, [startPolling, taskId]);
 
-  function handleDownload() {
+  async function handleDownload() {
     const videoUrl = status?.videos?.[0]?.video_url;
     if (!videoUrl) return;
 
-    const a = document.createElement('a');
-    a.href = videoUrl;
-    a.download = `dance-like-me-${taskId}.mp4`;
-    a.click();
     trackEvent('video_download', { taskId });
+
+    try {
+      // Fetch as blob to bypass cross-origin download restriction
+      const res = await fetch(videoUrl);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `dance-like-me-${taskId}.mp4`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // Fallback: open in new tab
+      window.open(videoUrl, '_blank');
+    }
   }
 
   function handleRetry() {

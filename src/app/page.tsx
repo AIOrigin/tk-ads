@@ -160,9 +160,11 @@ function MyVideos({ videos }: { videos: SavedVideo[] }) {
             <div className="aspect-[9/16] rounded-lg overflow-hidden relative bg-white/[0.06] ring-1 ring-white/10">
               <video
                 src={v.videoUrl}
+                autoPlay
+                loop
                 muted
                 playsInline
-                preload="metadata"
+                preload="auto"
                 className="w-full h-full object-cover"
               />
               <div className="absolute inset-0 flex items-center justify-center">
