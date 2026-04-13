@@ -6,7 +6,7 @@ import { verifyGoogleCode, getMe } from '@/lib/api/user-api';
 import { setToken } from '@/lib/api/client';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { toast } from '@/components/ui/Toast';
-import { trackEvent } from '@/lib/analytics';
+import { trackEvent, identifyUser } from '@/lib/analytics';
 import { buildLoginRedirect, consumePostAuthRedirect } from '@/lib/funnel';
 
 function CallbackContent() {
@@ -26,6 +26,7 @@ function CallbackContent() {
         setToken(accessToken);
         const user = await getMe();
         setAuth(accessToken, user);
+        await identifyUser(user.email, user.id);
         trackEvent(isFirstLogin ? 'sign_up' : 'login', { method: 'google' });
         router.replace(consumePostAuthRedirect('/'));
       } catch {

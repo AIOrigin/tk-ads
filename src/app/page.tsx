@@ -455,7 +455,16 @@ function HomeContent() {
     async function handlePaymentSuccess() {
       setIsProcessing(true);
       try {
-        trackEvent('payment_complete', { amount: 2.99, sessionId: sessionId! });
+        // Recover template info saved before Stripe redirect for TikTok content_id/content_name
+        const savedRaw = localStorage.getItem(PENDING_TEMPLATE_KEY);
+        let savedTemplate: Template | null = null;
+        try { savedTemplate = savedRaw ? JSON.parse(savedRaw) as Template : null; } catch { /* ignore */ }
+        trackEvent('payment_complete', {
+          amount: 2.99,
+          sessionId: sessionId!,
+          templateId: savedTemplate?.id || '',
+          templateName: savedTemplate?.name || '',
+        });
 
         const paidSessionInfo = await fetchPaidSessionInfo();
         if (paidSessionInfo?.taskId) {
@@ -574,6 +583,7 @@ function HomeContent() {
     setIsProcessing(true);
     trackEvent('payment_start', {
       templateId: selectedDance.id,
+      templateName: selectedDance.name,
       amount: 2.99,
     });
 
@@ -732,7 +742,10 @@ function HomeContent() {
         {/* Dance selector */}
         <DanceSelector
           selected={selectedDance}
-          onSelect={setSelectedDance}
+          onSelect={(t) => {
+            setSelectedDance(t);
+            trackEvent('view_content', { templateId: t.id, templateName: t.name, amount: 2.99 });
+          }}
         />
 
         {/* Photo upload */}

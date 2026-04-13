@@ -7,7 +7,7 @@ import { verifyOTP, sendOTP, getMe } from '@/lib/api/user-api';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { toast } from '@/components/ui/Toast';
 import { Button } from '@/components/ui/Button';
-import { trackEvent } from '@/lib/analytics';
+import { trackEvent, identifyUser } from '@/lib/analytics';
 import { consumePostAuthRedirect, sanitizeRedirect } from '@/lib/funnel';
 
 function VerifyContent() {
@@ -55,6 +55,7 @@ function VerifyContent() {
         setToken(accessToken);
         const userInfo = await getMe();
         setAuth(accessToken, userInfo);
+        await identifyUser(userInfo.email, userInfo.id);
         trackEvent(isFirstLogin ? 'sign_up' : 'login', { method: 'email' });
         router.replace(consumePostAuthRedirect(redirect));
       } catch {

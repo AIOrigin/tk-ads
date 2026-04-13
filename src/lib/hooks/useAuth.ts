@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { getToken } from '@/lib/api/client';
 import { getMe, type User } from '@/lib/api/user-api';
 import { useAuthStore } from '@/lib/store/auth-store';
+import { identifyUser } from '@/lib/analytics';
 
 export function useAuth() {
   const store = useAuthStore();
@@ -30,6 +31,7 @@ export function useAuth() {
     getMe()
       .then((user: User) => {
         store.setAuth(token, user);
+        identifyUser(user.email, user.id);
         setIsLoading(false);
       })
       .catch(() => {
