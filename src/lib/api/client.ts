@@ -29,8 +29,11 @@ function createApiClient(baseUrl: string) {
         },
       ],
       afterResponse: [
-        async ({ response }) => {
+        async ({ request, response }) => {
           if (response.status === 401 && typeof window !== 'undefined') {
+            // Don't redirect for auth endpoints — they use 401 for invalid/expired codes
+            const url = new URL(request.url);
+            if (url.pathname.includes('/auth/')) return;
             clearToken();
             window.location.href = buildLoginRedirect(getCurrentPathWithSearch());
           }
