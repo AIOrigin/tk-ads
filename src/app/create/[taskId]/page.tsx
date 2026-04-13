@@ -6,7 +6,7 @@ import { AuthGuard } from '@/components/layout/AuthGuard';
 import { Button } from '@/components/ui/Button';
 import { usePolling } from '@/lib/hooks/usePolling';
 import { trackEvent } from '@/lib/analytics';
-import { PENDING_SESSION_ID_KEY, PENDING_TASK_ID_KEY } from '@/lib/funnel';
+import { PENDING_SESSION_ID_KEY, PENDING_TASK_ID_KEY, saveVideo } from '@/lib/funnel';
 
 function GeneratingView({ progress }: { progress: number }) {
   return (
@@ -165,6 +165,11 @@ function ProgressContent() {
   if (status?.status === 'completed' && status.videos?.[0]?.videoUrl) {
     localStorage.removeItem(PENDING_SESSION_ID_KEY);
     localStorage.removeItem(PENDING_TASK_ID_KEY);
+    saveVideo({
+      taskId,
+      videoUrl: status.videos[0].videoUrl,
+      createdAt: status.completedAt || new Date().toISOString(),
+    });
     return (
       <CompletedView
         videoUrl={status.videos[0].videoUrl}

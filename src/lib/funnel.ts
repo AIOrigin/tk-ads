@@ -5,6 +5,33 @@ export const PENDING_TEMPLATE_KEY = 'dance_pending_template';
 export const PENDING_PHOTO_READY_KEY = 'dance_pending_photo_saved';
 export const PENDING_SESSION_ID_KEY = 'dance_pending_session_id';
 export const PENDING_TASK_ID_KEY = 'dance_pending_task_id';
+
+// --- My Videos (localStorage) ---
+const MY_VIDEOS_KEY = 'dance_my_videos';
+const MAX_SAVED_VIDEOS = 20;
+
+export interface SavedVideo {
+  taskId: string;
+  videoUrl: string;
+  createdAt: string;
+}
+
+export function getSavedVideos(): SavedVideo[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    return JSON.parse(localStorage.getItem(MY_VIDEOS_KEY) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+export function saveVideo(video: SavedVideo): void {
+  const videos = getSavedVideos();
+  // Deduplicate by taskId
+  const filtered = videos.filter((v) => v.taskId !== video.taskId);
+  filtered.unshift(video);
+  localStorage.setItem(MY_VIDEOS_KEY, JSON.stringify(filtered.slice(0, MAX_SAVED_VIDEOS)));
+}
 export const PHOTO_DB_NAME = 'dance_photo_db';
 export const PHOTO_STORE = 'photos';
 export const PHOTO_KEY = 'pending_photo';

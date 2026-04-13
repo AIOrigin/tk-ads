@@ -15,6 +15,7 @@ import type { Template } from '@/types/template';
 import {
   buildLoginRedirect,
   getCurrentPathWithSearch,
+  getSavedVideos,
   PENDING_PHOTO_READY_KEY,
   PENDING_SESSION_ID_KEY,
   PENDING_TASK_ID_KEY,
@@ -22,6 +23,7 @@ import {
   PHOTO_DB_NAME,
   PHOTO_KEY,
   PHOTO_STORE,
+  type SavedVideo,
 } from '@/lib/funnel';
 
 const allTemplates = templates as Template[];
@@ -132,6 +134,53 @@ function DanceSelector({
             </button>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// --- My Videos ---
+function MyVideos({ videos }: { videos: SavedVideo[] }) {
+  const router = useRouter();
+  if (videos.length === 0) return null;
+
+  return (
+    <div className="mb-5">
+      <p className="text-[11px] uppercase tracking-wider text-white/40 font-medium mb-2.5 px-1">
+        My Videos
+      </p>
+      <div
+        className="flex gap-2.5 overflow-x-auto pb-2"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      >
+        {videos.map((v) => (
+          <button
+            type="button"
+            key={v.taskId}
+            onClick={() => router.push(`/create/${v.taskId}`)}
+            className="flex-shrink-0 w-20"
+          >
+            <div className="aspect-[9/16] rounded-xl overflow-hidden relative bg-white/[0.06]">
+              <video
+                src={v.videoUrl}
+                muted
+                playsInline
+                preload="metadata"
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center">
+                  <svg aria-hidden="true" className="w-3.5 h-3.5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+            <p className="text-[10px] mt-1 text-center text-white/40 truncate">
+              {new Date(v.createdAt).toLocaleDateString()}
+            </p>
+          </button>
+        ))}
       </div>
     </div>
   );
@@ -289,6 +338,12 @@ function HomeContent() {
   const [hasSavedPhoto, setHasSavedPhoto] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [paidTemplateRecovered, setPaidTemplateRecovered] = useState(false);
+  const [myVideos, setMyVideos] = useState<SavedVideo[]>([]);
+
+  // Load saved videos on mount
+  useEffect(() => {
+    setMyVideos(getSavedVideos());
+  }, []);
 
   const resolveTemplateById = useCallback((templateId: string | null | undefined) => {
     if (!templateId) return null;
@@ -675,6 +730,9 @@ function HomeContent() {
 
       {/* Bottom Sheet: Select dance + Upload photo + Pay */}
       <BottomSheet isOpen={sheetOpen} onClose={() => setSheetOpen(false)}>
+        {/* My Videos */}
+        <MyVideos videos={myVideos} />
+
         {/* Dance selector */}
         <DanceSelector
           selected={selectedDance}
