@@ -145,6 +145,20 @@ function BottomSheet({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  // Prevent pull-to-refresh when sheet is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.classList.add('no-overscroll');
+      document.documentElement.classList.add('no-overscroll');
+    } else {
+      document.body.classList.remove('no-overscroll');
+      document.documentElement.classList.remove('no-overscroll');
+    }
+    return () => {
+      document.body.classList.remove('no-overscroll');
+      document.documentElement.classList.remove('no-overscroll');
+    };
+  }, [isOpen]);
   const sheetRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLButtonElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -168,6 +182,9 @@ function BottomSheet({
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (!isDragging.current) return;
     const delta = e.touches[0].clientY - startY.current;
+    if (delta > 0) {
+      e.preventDefault();
+    }
     // Only allow dragging down, with slight rubber-band resistance for upward
     const clampedDelta = delta < 0 ? delta * 0.1 : delta;
     currentY.current = clampedDelta;
