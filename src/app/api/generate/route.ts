@@ -1,6 +1,7 @@
 import Stripe from 'stripe';
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUserFromAuthHeader } from '@/lib/server/current-user';
+import { sendTikTokEvent, extractTikTokContext } from '@/lib/server/tiktok-events';
 
 export const runtime = 'nodejs';
 
@@ -33,6 +34,11 @@ export async function POST(req: NextRequest) {
     const characterOrientation = formData.get('character_orientation') as string;
     const durationSeconds = formData.get('duration_seconds') as string;
     const photoFile = formData.get('photo') as File;
+    const ttEventId = formData.get('tt_event_id') as string | null;
+    const ttTemplateId = formData.get('tt_template_id') as string | null;
+    const ttTemplateName = formData.get('tt_template_name') as string | null;
+    const ttTtclid = formData.get('tt_ttclid') as string | null;
+    const ttTtp = formData.get('tt_ttp') as string | null;
 
     // Validate required fields
     if (!sessionId || !motionVideoUrl || !mode || !characterOrientation || !durationSeconds || !photoFile) {
@@ -133,6 +139,28 @@ export async function POST(req: NextRequest) {
         generationStatus: result.status || 'processing',
         taskId: result.task_id,
       },
+    });
+
+    // TikTok Events API — Purchase (server-side, deduped with pixel via event_id)
+    const ttCtx = extractTikTokContext(req);
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+    sendTikTokEvent({
+      event: 'Purchase',
+      event_id: ttEventId || undefined,
+      user: {
+        email: currentUser.email,
+        external_id: currentUser.id,
+        ip: ttCtx.ip,
+        user_agent: ttCtx.user_agent,
+        ttclid: ttTtclid || ttCtx.ttclid,
+        ttp: ttTtp || ttCtx.ttp,
+      },
+      page_url: `${appUrl}/`,
+      contents: ttTemplateId
+        ? [{ content_id: ttTemplateId, content_type: 'product', content_name: ttTemplateName || '' }]
+        : undefined,
+      value: 2.99,
+      currency: 'USD',
     });
 
     return NextResponse.json({

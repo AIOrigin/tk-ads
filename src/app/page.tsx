@@ -8,7 +8,7 @@ import { PhotoUploader } from '@/components/create/PhotoUploader';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
 import { getToken } from '@/lib/api/client';
-import { trackEvent } from '@/lib/analytics';
+import { trackEvent, generateEventId, getTikTokClickId, getTikTokTtp } from '@/lib/analytics';
 import { PRICE_DISPLAY } from '@/lib/constants';
 import templates from '@/data/templates.json';
 import type { Template } from '@/types/template';
@@ -459,11 +459,13 @@ function HomeContent() {
         const savedRaw = localStorage.getItem(PENDING_TEMPLATE_KEY);
         let savedTemplate: Template | null = null;
         try { savedTemplate = savedRaw ? JSON.parse(savedRaw) as Template : null; } catch { /* ignore */ }
+        const purchaseEventId = generateEventId();
         trackEvent('payment_complete', {
           amount: 2.99,
           sessionId: sessionId!,
           templateId: savedTemplate?.id || '',
           templateName: savedTemplate?.name || '',
+          eventId: purchaseEventId,
         });
 
         const paidSessionInfo = await fetchPaidSessionInfo();
@@ -506,6 +508,13 @@ function HomeContent() {
         formData.append('character_orientation', template.characterOrientation);
         formData.append('duration_seconds', String(template.durationSeconds));
         formData.append('photo', photo);
+        formData.append('tt_event_id', purchaseEventId);
+        formData.append('tt_template_id', template.id);
+        formData.append('tt_template_name', template.name);
+        const ttclid = getTikTokClickId();
+        const ttp = getTikTokTtp();
+        if (ttclid) formData.append('tt_ttclid', ttclid);
+        if (ttp) formData.append('tt_ttp', ttp);
 
         const token = getToken();
         const res = await fetch('/api/generate', {
@@ -581,10 +590,12 @@ function HomeContent() {
     }
 
     setIsProcessing(true);
+    const checkoutEventId = generateEventId();
     trackEvent('payment_start', {
       templateId: selectedDance.id,
       templateName: selectedDance.name,
       amount: 2.99,
+      eventId: checkoutEventId,
     });
 
     try {
@@ -592,6 +603,7 @@ function HomeContent() {
       localStorage.setItem(PENDING_TEMPLATE_KEY, JSON.stringify(selectedDance));
 
       if (sessionId) {
+        const resumeEventId = generateEventId();
         const formData = new FormData();
         formData.append('session_id', sessionId);
         formData.append('motion_video_url', selectedDance.motionVideoUrl);
@@ -599,6 +611,13 @@ function HomeContent() {
         formData.append('character_orientation', selectedDance.characterOrientation);
         formData.append('duration_seconds', String(selectedDance.durationSeconds));
         formData.append('photo', effectivePhoto);
+        formData.append('tt_event_id', resumeEventId);
+        formData.append('tt_template_id', selectedDance.id);
+        formData.append('tt_template_name', selectedDance.name);
+        const ttclid2 = getTikTokClickId();
+        const ttp2 = getTikTokTtp();
+        if (ttclid2) formData.append('tt_ttclid', ttclid2);
+        if (ttp2) formData.append('tt_ttp', ttp2);
 
         const token = getToken();
         const response = await fetch('/api/generate', {
@@ -638,7 +657,13 @@ function HomeContent() {
           'Content-Type': 'application/json',
           ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
         },
-        body: JSON.stringify({ templateId: selectedDance.id }),
+        body: JSON.stringify({
+          templateId: selectedDance.id,
+          templateName: selectedDance.name,
+          ttEventId: checkoutEventId,
+          ttTtclid: getTikTokClickId() || undefined,
+          ttTtp: getTikTokTtp() || undefined,
+        }),
       });
 
       const data = await res.json();

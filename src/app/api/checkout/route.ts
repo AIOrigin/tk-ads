@@ -1,6 +1,7 @@
 import Stripe from 'stripe';
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUserFromAuthHeader } from '@/lib/server/current-user';
+import { sendTikTokEvent, extractTikTokContext } from '@/lib/server/tiktok-events';
 
 export const runtime = 'nodejs';
 
@@ -15,7 +16,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { templateId } = await req.json();
+    const { templateId, templateName, ttEventId, ttTtclid, ttTtp } = await req.json();
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
 
@@ -42,6 +43,27 @@ export async function POST(req: NextRequest) {
       ],
       success_url: `${appUrl}/?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appUrl}/?canceled=true`,
+    });
+
+    // TikTok Events API — InitiateCheckout (server-side, deduped with pixel via event_id)
+    const ttCtx = extractTikTokContext(req);
+    sendTikTokEvent({
+      event: 'InitiateCheckout',
+      event_id: ttEventId,
+      user: {
+        email: currentUser.email,
+        external_id: currentUser.id,
+        ip: ttCtx.ip,
+        user_agent: ttCtx.user_agent,
+        ttclid: ttTtclid || ttCtx.ttclid,
+        ttp: ttTtp || ttCtx.ttp,
+      },
+      page_url: `${appUrl}/`,
+      contents: templateId
+        ? [{ content_id: templateId, content_type: 'product', content_name: templateName || '' }]
+        : undefined,
+      value: 2.99,
+      currency: 'USD',
     });
 
     return NextResponse.json({ url: session.url });

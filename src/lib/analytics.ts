@@ -21,6 +21,7 @@ interface TikTokEventParams {
   contents?: TikTokContent[];
   value?: number;
   currency?: string;
+  event_id?: string;
 }
 
 function toTikTokParams(props?: EventProperties): TikTokEventParams | undefined {
@@ -42,7 +43,17 @@ function toTikTokParams(props?: EventProperties): TikTokEventParams | undefined 
     params.currency = 'USD';
   }
 
+  if (props.eventId) {
+    params.event_id = String(props.eventId);
+  }
+
   return Object.keys(params).length > 0 ? params : undefined;
+}
+
+// --- Event ID generation for deduplication between pixel and Events API ---
+
+export function generateEventId(): string {
+  return crypto.randomUUID();
 }
 
 // --- ttq.identify — matches TikTok's PII postback requirement ---
@@ -76,6 +87,20 @@ export async function identifyUser(email: string, userId: string) {
     email: hashedEmail,
     external_id: hashedId,
   });
+}
+
+// --- Read TikTok cookies for forwarding to server ---
+
+export function getTikTokClickId(): string {
+  if (typeof document === 'undefined') return '';
+  const match = document.cookie.match(/ttclid=([^;]+)/);
+  return match?.[1] || '';
+}
+
+export function getTikTokTtp(): string {
+  if (typeof document === 'undefined') return '';
+  const match = document.cookie.match(/ttp=([^;]+)/);
+  return match?.[1] || '';
 }
 
 // --- Core tracking ---
