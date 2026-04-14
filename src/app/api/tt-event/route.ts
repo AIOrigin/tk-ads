@@ -51,8 +51,8 @@ export async function POST(req: NextRequest) {
       contents: template_id
         ? [{ content_id: template_id, content_type: 'product', content_name: template_name || '' }]
         : undefined,
-      value: value !== undefined ? Number(value) : undefined,
-      currency: currency || (value !== undefined ? 'USD' : undefined),
+      value: value !== undefined ? Number(value) : 0,
+      currency: currency || 'USD',
     });
 
     return NextResponse.json({ ok: true });

@@ -29,29 +29,31 @@ interface TikTokEventParams {
 }
 
 function toTikTokParams(props?: EventProperties): TikTokEventParams | undefined {
-  if (!props) return undefined;
+  if (!props) return { currency: 'USD', value: 0 };
 
   const params: TikTokEventParams = {};
 
-  if (props.templateId) {
+  // content_id: prefer templateId, fall back to taskId
+  const contentId = props.templateId || props.taskId;
+  if (contentId) {
     const content: TikTokContent = {
-      content_id: String(props.templateId),
+      content_id: String(contentId),
       content_type: 'product',
     };
     if (props.templateName) content.content_name = String(props.templateName);
     params.contents = [content];
   }
 
-  if (props.amount !== undefined) {
-    params.value = Number(props.amount);
-    params.currency = 'USD';
-  }
+  // TikTok flags missing value/currency as high severity on ALL events.
+  // Always send them — use 0 for non-monetary events (CompleteRegistration).
+  params.value = props.amount !== undefined ? Number(props.amount) : 0;
+  params.currency = 'USD';
 
   if (props.eventId) {
     params.event_id = String(props.eventId);
   }
 
-  return Object.keys(params).length > 0 ? params : undefined;
+  return params;
 }
 
 // --- Event ID generation for deduplication between pixel and Events API ---
@@ -134,10 +136,10 @@ function sendServerEvent(eventName: string, props?: EventProperties): void {
     body: JSON.stringify({
       event: ttEvent,
       event_id: props?.eventId ? String(props.eventId) : undefined,
-      template_id: props?.templateId ? String(props.templateId) : undefined,
+      template_id: props?.templateId ? String(props.templateId) : (props?.taskId ? String(props.taskId) : undefined),
       template_name: props?.templateName ? String(props.templateName) : undefined,
-      value: props?.amount !== undefined ? Number(props.amount) : undefined,
-      currency: props?.amount !== undefined ? 'USD' : undefined,
+      value: props?.amount !== undefined ? Number(props.amount) : 0,
+      currency: 'USD',
       ttclid: getTikTokClickId() || undefined,
       ttp: getTikTokTtp() || undefined,
     }),

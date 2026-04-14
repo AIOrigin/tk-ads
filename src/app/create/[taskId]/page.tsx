@@ -132,7 +132,7 @@ function ProgressContent() {
     const videoUrl = status?.videos?.[0]?.video_url;
     if (!videoUrl) return;
 
-    trackEvent('video_download', { taskId });
+    trackEvent('video_download', { taskId, amount: 2.99 });
 
     try {
       // Fetch as blob to bypass cross-origin download restriction
