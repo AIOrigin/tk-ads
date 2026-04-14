@@ -9,8 +9,12 @@ const TT_EVENT_MAP: Record<string, string> = {
   video_download: 'Download',
 };
 
+// Events that need server-side firing via /api/tt-event.
+// InitiateCheckout and Purchase are excluded — they fire inline
+// from /api/checkout and /api/generate respectively.
+const SERVER_SIDE_EVENTS = new Set(['view_content', 'sign_up', 'video_download']);
+
 // TikTok expects a nested `contents` array — flat params are silently ignored.
-// See: https://ads.tiktok.com/help/article/standard-events-parameters
 interface TikTokContent {
   content_id: string;
   content_type?: string;
@@ -103,15 +107,62 @@ export function getTikTokTtp(): string {
   return match?.[1] || '';
 }
 
+// --- Server-side event forwarding ---
+
+/**
+ * Fire event to /api/tt-event for server-side TikTok Events API.
+ * Fire-and-forget — never blocks the UI or throws.
+ */
+function sendServerEvent(eventName: string, props?: EventProperties): void {
+  if (typeof window === 'undefined') return;
+
+  const ttEvent = TT_EVENT_MAP[eventName];
+  if (!ttEvent) return;
+
+  // Dynamic import to avoid pulling client.ts into the module at parse time
+  let token: string | null = null;
+  try {
+    token = localStorage.getItem('dance_auth_token');
+  } catch { /* SSR guard */ }
+
+  fetch('/api/tt-event', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({
+      event: ttEvent,
+      event_id: props?.eventId ? String(props.eventId) : undefined,
+      template_id: props?.templateId ? String(props.templateId) : undefined,
+      template_name: props?.templateName ? String(props.templateName) : undefined,
+      value: props?.amount !== undefined ? Number(props.amount) : undefined,
+      currency: props?.amount !== undefined ? 'USD' : undefined,
+      ttclid: getTikTokClickId() || undefined,
+      ttp: getTikTokTtp() || undefined,
+    }),
+  }).catch(() => {
+    // Silently fail — server event is supplementary
+  });
+}
+
 // --- Core tracking ---
 
 export function trackEvent(eventName: string, properties?: EventProperties) {
+  // Auto-generate event_id for TikTok-mapped events when not provided
+  const eventId =
+    properties?.eventId ||
+    (TT_EVENT_MAP[eventName] ? generateEventId() : undefined);
+  const props = eventId
+    ? { ...properties, eventId }
+    : properties;
+
   // Google Analytics — pass our internal property names as-is
   if (typeof window !== 'undefined' && 'gtag' in window) {
     (window as unknown as { gtag: (...args: unknown[]) => void }).gtag(
       'event',
       eventName,
-      properties
+      props
     );
   }
 
@@ -124,8 +175,13 @@ export function trackEvent(eventName: string, properties?: EventProperties) {
     ).ttq;
     const ttEvent = TT_EVENT_MAP[eventName];
     if (ttEvent) {
-      ttq.track(ttEvent, toTikTokParams(properties));
+      ttq.track(ttEvent, toTikTokParams(props));
     }
+  }
+
+  // TikTok Events API (server-side) for events without dedicated server routes
+  if (SERVER_SIDE_EVENTS.has(eventName)) {
+    sendServerEvent(eventName, props);
   }
 }
 
