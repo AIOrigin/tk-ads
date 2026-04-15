@@ -9,6 +9,15 @@ const TT_EVENT_MAP: Record<string, string> = {
   video_download: 'Download',
 };
 
+// Meta Pixel standard event names
+const META_EVENT_MAP: Record<string, { event: string; custom: boolean }> = {
+  view_content: { event: 'ViewContent', custom: false },
+  sign_up: { event: 'CompleteRegistration', custom: false },
+  payment_start: { event: 'InitiateCheckout', custom: false },
+  payment_complete: { event: 'Purchase', custom: false },
+  video_download: { event: 'Download', custom: true },
+};
+
 // Events that need server-side firing via /api/tt-event.
 // InitiateCheckout and Purchase are excluded — they fire inline
 // from /api/checkout and /api/generate respectively.
@@ -51,6 +60,37 @@ function toTikTokParams(props?: EventProperties): TikTokEventParams | undefined 
 
   if (props.eventId) {
     params.event_id = String(props.eventId);
+  }
+
+  return params;
+}
+
+interface MetaEventParams {
+  content_ids?: string[];
+  content_name?: string;
+  content_type?: string;
+  value?: number;
+  currency?: string;
+}
+
+function toMetaParams(eventName: string, props?: EventProperties): MetaEventParams {
+  const params: MetaEventParams = {};
+
+  const contentId = props?.templateId || props?.taskId;
+  if (contentId) {
+    params.content_ids = [String(contentId)];
+    params.content_type = 'product';
+  }
+  if (props?.templateName) {
+    params.content_name = String(props.templateName);
+  }
+
+  if (props?.amount !== undefined) {
+    params.value = Number(props.amount);
+    params.currency = 'USD';
+  } else if (eventName === 'payment_complete') {
+    params.value = 1.99;
+    params.currency = 'USD';
   }
 
   return params;
@@ -178,6 +218,20 @@ export function trackEvent(eventName: string, properties?: EventProperties) {
     const ttEvent = TT_EVENT_MAP[eventName];
     if (ttEvent) {
       ttq.track(ttEvent, toTikTokParams(props));
+    }
+  }
+
+  // Meta Pixel — translate to standard/custom event
+  if (typeof window !== 'undefined' && 'fbq' in window) {
+    const fbq = (window as unknown as { fbq: (...args: unknown[]) => void }).fbq;
+    const metaMapping = META_EVENT_MAP[eventName];
+    if (metaMapping) {
+      const metaParams = toMetaParams(eventName, props);
+      if (metaMapping.custom) {
+        fbq('trackCustom', metaMapping.event, metaParams);
+      } else {
+        fbq('track', metaMapping.event, metaParams);
+      }
     }
   }
 
