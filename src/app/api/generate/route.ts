@@ -123,10 +123,13 @@ export async function POST(req: NextRequest) {
           generationStatus: 'ready',
         },
       });
-      const errorText = await genResponse.text();
-      console.error('Generation API error:', genResponse.status, errorText);
+      let errorDetail = '';
+      try {
+        errorDetail = await genResponse.text();
+      } catch { /* ignore */ }
+      console.error('Generation API error:', genResponse.status, errorDetail);
       return NextResponse.json(
-        { error: 'Video generation failed. Please try again.' },
+        { error: `Video generation failed (${genResponse.status}): ${errorDetail || 'Unknown error'}` },
         { status: 502 }
       );
     }

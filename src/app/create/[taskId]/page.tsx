@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { AuthGuard } from '@/components/layout/AuthGuard';
 import { Button } from '@/components/ui/Button';
+import { toast } from '@/components/ui/Toast';
 import { usePolling } from '@/lib/hooks/usePolling';
 import { trackEvent } from '@/lib/analytics';
 import { PENDING_SESSION_ID_KEY, PENDING_TASK_ID_KEY, saveVideo } from '@/lib/funnel';
@@ -42,6 +43,8 @@ function CompletedView({ videoUrl, onDownload, onCreateAnother }: {
   onDownload: () => void;
   onCreateAnother: () => void;
 }) {
+  const isTikTok = typeof navigator !== 'undefined' && /musical_ly|tiktok|bytedance/i.test(navigator.userAgent);
+
   return (
     <div className="px-5 pt-4 pb-10">
       {/* Video player */}
@@ -59,12 +62,16 @@ function CompletedView({ videoUrl, onDownload, onCreateAnother }: {
 
       <div className="text-center mb-6">
         <h2 className="text-lg font-semibold text-white">Your video is ready</h2>
-        <p className="text-[13px] text-white/50 mt-1">Save it and share with the world</p>
+        {isTikTok ? (
+          <p className="text-[13px] text-white/50 mt-1">Long press the video above to save</p>
+        ) : (
+          <p className="text-[13px] text-white/50 mt-1">Save it and share with the world</p>
+        )}
       </div>
 
       <div className="space-y-2.5">
         <Button variant="glow" size="lg" className="w-full" onClick={onDownload}>
-          Download Video
+          {isTikTok ? 'Copy Video Link' : 'Download Video'}
         </Button>
         <Button variant="outline" size="lg" className="w-full" onClick={onCreateAnother}>
           Create Another
@@ -128,14 +135,27 @@ function ProgressContent() {
     startPolling();
   }, [startPolling, taskId]);
 
+  const isTikTok = typeof navigator !== 'undefined' && /musical_ly|tiktok|bytedance/i.test(navigator.userAgent);
+
   async function handleDownload() {
     const videoUrl = status?.videos?.[0]?.video_url;
     if (!videoUrl) return;
 
     trackEvent('video_download', { taskId, amount: 2.99 });
 
+    // TikTok WebView: copy link since download is blocked
+    if (isTikTok) {
+      try {
+        await navigator.clipboard.writeText(videoUrl);
+        toast.success('Link copied! Open in browser to download.');
+      } catch {
+        // Fallback for clipboard API not available
+        toast.info('Long press the video to save it.');
+      }
+      return;
+    }
+
     try {
-      // Fetch as blob to bypass cross-origin download restriction
       const res = await fetch(videoUrl);
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -145,7 +165,6 @@ function ProgressContent() {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      // Fallback: open in new tab
       window.open(videoUrl, '_blank');
     }
   }
