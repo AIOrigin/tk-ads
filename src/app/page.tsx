@@ -820,7 +820,7 @@ function HomeContent() {
           selected={selectedDance}
           onSelect={(t) => {
             setSelectedDance(t);
-            trackEvent('view_content', { templateId: t.id, templateName: t.name, amount: 2.99 });
+            trackEvent('view_content', { templateId: t.id, templateName: t.name, amount: 1.99 });
           }}
         />
 
