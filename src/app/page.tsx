@@ -8,6 +8,7 @@ import { PhotoUploader } from '@/components/create/PhotoUploader';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
 import { getToken } from '@/lib/api/client';
+import { getCredits, getTotalCredits } from '@/lib/api/user-api';
 import { trackEvent, generateEventId, getTikTokClickId, getTikTokTtp } from '@/lib/analytics';
 import { PRICE_DISPLAY } from '@/lib/constants';
 import templates from '@/data/templates.json';
@@ -590,17 +591,67 @@ function HomeContent() {
     }
 
     setIsProcessing(true);
-    const checkoutEventId = generateEventId();
-    trackEvent('payment_start', {
-      templateId: selectedDance.id,
-      templateName: selectedDance.name,
-      amount: 2.99,
-      eventId: checkoutEventId,
-    });
 
     try {
       await savePhotoToDB(effectivePhoto);
       localStorage.setItem(PENDING_TEMPLATE_KEY, JSON.stringify(selectedDance));
+
+      // Check if user has enough credits to skip payment
+      const creditsNeeded = Math.ceil((selectedDance.mode === '720p' ? 17 : 26) * selectedDance.durationSeconds * 1.8);
+      let hasEnoughCredits = false;
+      try {
+        const credits = await getCredits();
+        const total = getTotalCredits(credits);
+        hasEnoughCredits = total >= creditsNeeded;
+      } catch { /* ignore — will fall through to payment */ }
+
+      if (hasEnoughCredits) {
+        // Generate directly using existing credits
+        const formData = new FormData();
+        formData.append('motion_video_url', selectedDance.motionVideoUrl);
+        formData.append('mode', selectedDance.mode);
+        formData.append('character_orientation', selectedDance.characterOrientation);
+        formData.append('duration_seconds', String(selectedDance.durationSeconds));
+        formData.append('photo', effectivePhoto);
+
+        const token = getToken();
+        const response = await fetch('/api/generate-free', {
+          method: 'POST',
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: formData,
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.task_id) {
+          trackEvent('generation_start', {
+            templateId: selectedDance.id,
+            taskId: result.task_id,
+          });
+
+          localStorage.removeItem(PENDING_TEMPLATE_KEY);
+          localStorage.setItem(PENDING_SESSION_ID_KEY, 'credits');
+          await clearPhotoDB();
+          router.replace(`/create/${result.task_id}`);
+          return;
+        }
+
+        // If 402 (insufficient credits), fall through to payment
+        if (response.status !== 402) {
+          throw new Error(result.error || 'Generation failed');
+        }
+      }
+
+      // Fall through to Stripe payment flow
+      const checkoutEventId = generateEventId();
+      trackEvent('payment_start', {
+        templateId: selectedDance.id,
+        templateName: selectedDance.name,
+        amount: 1.99,
+        eventId: checkoutEventId,
+      });
 
       if (sessionId) {
         const resumeEventId = generateEventId();

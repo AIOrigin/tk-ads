@@ -44,3 +44,24 @@ export interface User {
 export async function getMe(): Promise<User> {
   return userApi.get('v1/users/me').json();
 }
+
+// --- Credits ---
+
+export interface Credit {
+  id: string;
+  userId: string;
+  initialBalance: number;
+  currentBalance: number;
+  source: string;
+  type: string;
+  validFrom: string;
+  expiredAt: string;
+}
+
+export async function getCredits(): Promise<Credit[]> {
+  return userApi.get('v1/credits').json();
+}
+
+export function getTotalCredits(credits: Credit[]): number {
+  return credits.reduce((sum, c) => sum + c.currentBalance, 0);
+}
