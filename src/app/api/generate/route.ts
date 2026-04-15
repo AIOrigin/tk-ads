@@ -7,10 +7,48 @@ export const runtime = 'nodejs';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!.trim());
 const TOOL_API_BASE = process.env.TOOL_API_INTERNAL_URL || process.env.NEXT_PUBLIC_TOOL_API_BASE_URL!;
+const USER_API_BASE = process.env.USER_API_INTERNAL_URL || process.env.NEXT_PUBLIC_USER_API_BASE_URL!;
+const USER_API_KEY = process.env.USER_API_INTERNAL_KEY || '';
 
 // In-memory set of used session IDs (for single-instance deployment)
 // For production with multiple instances, use Redis or a database
 const usedSessions = new Set<string>();
+
+// Calculate credits needed: matches tool-api formula
+// base_credit = (17 if 720p else 26) * duration_seconds; final = ceil(base * 1.8)
+function calculateCredits(mode: string, durationSeconds: number): number {
+  const base = (mode === '720p' ? 17 : 26) * durationSeconds;
+  return Math.ceil(base * 1.8);
+}
+
+// Grant credits to user via user-api before calling tool-api
+async function grantCredits(userId: string, points: number): Promise<boolean> {
+  try {
+    const res = await fetch(`${USER_API_BASE}/v1/credits/grant`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': USER_API_KEY,
+      },
+      body: JSON.stringify({
+        userId,
+        points,
+        source: 'RECHARGE',
+        type: 'RECHARGE',
+        expiresInDays: 1, // Short expiry — should be consumed immediately
+      }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      console.error('Grant credits failed:', res.status, text);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Grant credits error:', err);
+    return false;
+  }
+}
 
 export async function POST(req: NextRequest) {
   let sessionId: string | null = null;
@@ -97,6 +135,20 @@ export async function POST(req: NextRequest) {
         generationStatus: 'processing',
       },
     });
+
+    // Grant credits to user before calling tool-api
+    const creditsNeeded = calculateCredits(mode, parseInt(durationSeconds, 10));
+    const granted = await grantCredits(currentUser.id, creditsNeeded);
+    if (!granted) {
+      usedSessions.delete(sessionId);
+      await stripe.checkout.sessions.update(sessionId, {
+        metadata: { ...metadata, generationStatus: 'ready' },
+      });
+      return NextResponse.json(
+        { error: 'Failed to prepare credits for generation. Please try again.' },
+        { status: 500 }
+      );
+    }
 
     // Forward to tool-api with user's JWT (tool-api validates JWT for user identity)
     const genForm = new FormData();
