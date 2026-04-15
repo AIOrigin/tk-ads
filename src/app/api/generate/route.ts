@@ -22,9 +22,11 @@ function calculateCredits(mode: string, durationSeconds: number): number {
 }
 
 // Grant credits to user via user-api before calling tool-api
-async function grantCredits(userId: string, points: number): Promise<boolean> {
+async function grantCredits(userId: string, points: number): Promise<{ ok: boolean; error?: string }> {
   try {
-    const res = await fetch(`${USER_API_BASE}/v1/credits/grant`, {
+    const url = `${USER_API_BASE}/v1/credits/grant`;
+    console.log('[grantCredits] calling:', url, 'userId:', userId, 'points:', points, 'hasKey:', !!USER_API_KEY);
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -35,18 +37,18 @@ async function grantCredits(userId: string, points: number): Promise<boolean> {
         points,
         source: 'RECHARGE',
         type: 'RECHARGE',
-        expiresInDays: 1, // Short expiry — should be consumed immediately
+        expiresInDays: 1,
       }),
     });
     if (!res.ok) {
       const text = await res.text();
       console.error('Grant credits failed:', res.status, text);
-      return false;
+      return { ok: false, error: `Grant credits failed (${res.status}): ${text}` };
     }
-    return true;
+    return { ok: true };
   } catch (err) {
     console.error('Grant credits error:', err);
-    return false;
+    return { ok: false, error: `Grant credits error: ${err instanceof Error ? err.message : String(err)}` };
   }
 }
 
@@ -138,14 +140,14 @@ export async function POST(req: NextRequest) {
 
     // Grant credits to user before calling tool-api
     const creditsNeeded = calculateCredits(mode, parseInt(durationSeconds, 10));
-    const granted = await grantCredits(currentUser.id, creditsNeeded);
-    if (!granted) {
+    const grantResult = await grantCredits(currentUser.id, creditsNeeded);
+    if (!grantResult.ok) {
       usedSessions.delete(sessionId);
       await stripe.checkout.sessions.update(sessionId, {
         metadata: { ...metadata, generationStatus: 'ready' },
       });
       return NextResponse.json(
-        { error: 'Failed to prepare credits for generation. Please try again.' },
+        { error: grantResult.error || 'Failed to prepare credits for generation. Please try again.' },
         { status: 500 }
       );
     }
