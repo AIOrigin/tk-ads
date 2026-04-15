@@ -35,8 +35,8 @@ async function grantCredits(userId: string, points: number): Promise<{ ok: boole
       body: JSON.stringify({
         userId,
         points,
-        source: 'RECHARGE',
-        type: 'RECHARGE',
+        source: 'TKADS',
+        type: 'TKADS',
         expiresInDays: 1,
       }),
     });
