@@ -11,7 +11,7 @@ export async function verifyOTP(
   code: string
 ): Promise<{ accessToken: string; isFirstLogin: boolean }> {
   return userApi
-    .post('v1/auth/verify-code', { json: { email, code } })
+    .post('v1/auth/verify-code', { json: { email, code, source: 'tiktok' } })
     .json();
 }
 
