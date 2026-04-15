@@ -1,8 +1,52 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { PHOTO_MAX_SIZE_BYTES, PHOTO_ACCEPTED_TYPES, PHOTO_MAX_SIZE_MB } from '@/lib/constants';
+import { PHOTO_ACCEPTED_TYPES, PHOTO_MAX_SIZE_MB } from '@/lib/constants';
 import { toast } from '@/components/ui/Toast';
+
+const MAX_DIMENSION = 1280;
+const COMPRESS_QUALITY = 0.85;
+const MAX_UPLOAD_BYTES = 3.5 * 1024 * 1024; // Keep under Vercel's 4.5MB limit
+
+function compressImage(file: File): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+
+      let { width, height } = img;
+      if (width <= MAX_DIMENSION && height <= MAX_DIMENSION && file.size <= MAX_UPLOAD_BYTES) {
+        resolve(file);
+        return;
+      }
+
+      // Scale down
+      if (width > height) {
+        if (width > MAX_DIMENSION) { height = Math.round(height * MAX_DIMENSION / width); width = MAX_DIMENSION; }
+      } else {
+        if (height > MAX_DIMENSION) { width = Math.round(width * MAX_DIMENSION / height); height = MAX_DIMENSION; }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0, width, height);
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) { reject(new Error('Compression failed')); return; }
+          resolve(new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' }));
+        },
+        'image/jpeg',
+        COMPRESS_QUALITY,
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Failed to load image')); };
+    img.src = url;
+  });
+}
 
 interface PhotoUploaderProps {
   onFileSelected: (file: File) => void;
@@ -30,7 +74,7 @@ export function PhotoUploader({
     return () => URL.revokeObjectURL(nextPreviewUrl);
   }, [selectedFile]);
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -39,13 +83,18 @@ export function PhotoUploader({
       return;
     }
 
-    if (file.size > PHOTO_MAX_SIZE_BYTES) {
+    if (file.size > PHOTO_MAX_SIZE_MB * 1024 * 1024) {
       toast.error(`Photo must be under ${PHOTO_MAX_SIZE_MB}MB`);
       return;
     }
 
-    setPreviewUrl(URL.createObjectURL(file));
-    onFileSelected(file);
+    try {
+      const compressed = await compressImage(file);
+      setPreviewUrl(URL.createObjectURL(compressed));
+      onFileSelected(compressed);
+    } catch {
+      toast.error('Failed to process image. Please try another photo.');
+    }
   }
 
   function handleReupload() {
