@@ -736,7 +736,7 @@ function HomeContent() {
             </span>
           </h1>
           <p className="text-[14px] text-white/50 mb-5 leading-relaxed">
-            Upload a selfie. Pick a dance. Only {PRICE_DISPLAY}.
+            Upload a selfie. Pick a dance. Get your video.
           </p>
 
           {/* My Videos */}
@@ -748,7 +748,7 @@ function HomeContent() {
             className="w-full text-base font-semibold"
             onClick={() => setSheetOpen(true)}
           >
-            Create Yours — {PRICE_DISPLAY}
+            Create Yours
           </Button>
 
           {/* Trust line */}
@@ -800,7 +800,7 @@ function HomeContent() {
           isLoading={isProcessing}
           onClick={handlePay}
         >
-          {sessionId ? 'Continue Without Paying Again' : `Pay ${PRICE_DISPLAY} & Create Video`}
+          {sessionId ? 'Continue Without Paying Again' : 'Create Video'}
         </Button>
         <div className="flex items-center justify-center gap-1.5 mt-2 text-[11px] text-white/25">
           <svg aria-hidden="true" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
