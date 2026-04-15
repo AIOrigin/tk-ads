@@ -17,37 +17,20 @@ export async function POST(req: NextRequest) {
 
     const { templateId } = await req.json();
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
-
-    const session = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      payment_method_types: ['card'],
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: 299, // $2.99 in cents
+      currency: 'usd',
       metadata: {
         templateId: typeof templateId === 'string' ? templateId : '',
         userId: currentUser.id,
         generationStatus: 'ready',
       },
-      line_items: [
-        {
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: 'Dance Video Generation',
-              description: 'Create your own AI dance video',
-            },
-            unit_amount: 299, // $2.99 in cents
-          },
-          quantity: 1,
-        },
-      ],
-      success_url: `${appUrl}/?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${appUrl}/?canceled=true`,
     });
 
-    return NextResponse.json({ url: session.url });
+    return NextResponse.json({ clientSecret: paymentIntent.client_secret });
   } catch (error) {
     console.error('Checkout error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to create checkout session';
+    const message = error instanceof Error ? error.message : 'Failed to create payment';
     return NextResponse.json(
       { error: message },
       { status: 500 }

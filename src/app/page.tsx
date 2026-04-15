@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useCreateStore } from '@/lib/store/create-store';
 import { PhotoUploader } from '@/components/create/PhotoUploader';
+import { PaymentSheet } from '@/components/payment/PaymentSheet';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
 import { getToken } from '@/lib/api/client';
@@ -312,18 +313,16 @@ function BottomSheet({
 function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const sessionId = searchParams.get('session_id');
-  const canceled = searchParams.get('canceled');
   const shouldResume = searchParams.get('resume') === '1';
 
   // If there's a pending task, resume to its progress page
   useEffect(() => {
-    if (sessionId || canceled || shouldResume) return; // don't redirect if explicitly coming back
+    if (shouldResume) return;
     const pendingTaskId = localStorage.getItem(PENDING_TASK_ID_KEY);
     if (pendingTaskId) {
       router.replace(`/create/${pendingTaskId}`);
     }
-  }, [router, sessionId, canceled, shouldResume]);
+  }, [router, shouldResume]);
 
   const { isAuthenticated } = useAuth();
   const { selectTemplate } = useCreateStore();
@@ -333,7 +332,8 @@ function HomeContent() {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [hasSavedPhoto, setHasSavedPhoto] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [paidTemplateRecovered, setPaidTemplateRecovered] = useState(false);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
   const [myVideos, setMyVideos] = useState<SavedVideo[]>([]);
 
   // Load saved videos on mount
@@ -341,90 +341,18 @@ function HomeContent() {
     setMyVideos(getSavedVideos());
   }, []);
 
-  const resolveTemplateById = useCallback((templateId: string | null | undefined) => {
-    if (!templateId) return null;
-    return allTemplates.find((template) => template.id === templateId) ?? null;
-  }, []);
-
-  const restorePendingTemplate = useCallback(() => {
-    const pendingRaw = localStorage.getItem(PENDING_TEMPLATE_KEY);
-    if (!pendingRaw) return false;
-
-    try {
-      const pendingTemplate = JSON.parse(pendingRaw) as Template;
-      const matchedTemplate = resolveTemplateById(pendingTemplate.id);
-
-      if (matchedTemplate) {
-        setSelectedDance(matchedTemplate);
-      }
-
-      return true;
-    } catch {
-      return false;
-    }
-  }, [resolveTemplateById]);
-
-  const fetchPaidSessionInfo = useCallback(async () => {
-    if (!sessionId) return null;
-
-    const token = getToken();
-    const response = await fetch(`/api/checkout-session?session_id=${encodeURIComponent(sessionId)}`, {
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-    });
-
-    if (response.status === 401) {
-      router.replace(buildLoginRedirect(getCurrentPathWithSearch()));
-      return null;
-    }
-
-    if (!response.ok) {
-      return null;
-    }
-
-    return response.json() as Promise<{
-      sessionId: string;
-      paymentStatus: string;
-      templateId: string | null;
-      taskId: string | null;
-      generationStatus: string | null;
-      paid: boolean;
-    }>;
-  }, [router, sessionId]);
-
-  const restorePendingState = useCallback(async () => {
-    const hasTemplate = restorePendingTemplate();
-    if (!hasTemplate) return false;
-
-    try {
-      const savedPhoto = await loadPhotoFromDB();
-      if (savedPhoto) {
-        setPhotoFile(savedPhoto);
-        setHasSavedPhoto(true);
-      }
-
-      setSheetOpen(true);
-      return true;
-    } catch {
-      return false;
-    }
-  }, [restorePendingTemplate]);
-
+  // Restore pending state after login redirect
   useEffect(() => {
     if (!shouldResume) return;
-    void restorePendingState();
-  }, [restorePendingState, shouldResume]);
 
-  useEffect(() => {
-    if (!shouldResume && !canceled) return;
-    if (photoFile) return;
-
-    if (localStorage.getItem(PENDING_PHOTO_READY_KEY) === '1') {
-      setHasSavedPhoto(true);
+    const pendingRaw = localStorage.getItem(PENDING_TEMPLATE_KEY);
+    if (pendingRaw) {
+      try {
+        const pendingTemplate = JSON.parse(pendingRaw) as Template;
+        const matched = allTemplates.find((t) => t.id === pendingTemplate.id);
+        if (matched) setSelectedDance(matched);
+      } catch { /* ignore */ }
     }
-
-    if (!restorePendingTemplate()) return;
 
     void loadPhotoFromDB().then((savedPhoto) => {
       if (savedPhoto) {
@@ -432,118 +360,9 @@ function HomeContent() {
         setHasSavedPhoto(true);
       }
     });
-  }, [canceled, photoFile, restorePendingTemplate, shouldResume]);
 
-  // Handle Stripe cancel
-  useEffect(() => {
-    if (canceled) {
-      void restorePendingState().then((restored) => {
-        toast.info(
-          restored
-            ? 'Payment was not completed. Your dance and photo are still saved.'
-            : 'Payment was not completed. Please choose your dance and upload a photo again.'
-        );
-        setSheetOpen(true);
-      });
-    }
-  }, [canceled, restorePendingState]);
-
-  // Handle Stripe success redirect
-  useEffect(() => {
-    if (!sessionId) return;
-
-    async function handlePaymentSuccess() {
-      setIsProcessing(true);
-      try {
-        trackEvent('payment_complete', { amount: 2.99, sessionId: sessionId! });
-
-        const paidSessionInfo = await fetchPaidSessionInfo();
-        if (paidSessionInfo?.taskId) {
-          localStorage.setItem(PENDING_SESSION_ID_KEY, sessionId!);
-          router.replace(`/create/${paidSessionInfo.taskId}`);
-          return;
-        }
-
-        const pendingRaw = localStorage.getItem(PENDING_TEMPLATE_KEY);
-        const storedTemplate = pendingRaw ? (JSON.parse(pendingRaw) as Template) : null;
-        const template = storedTemplate ?? resolveTemplateById(paidSessionInfo?.templateId);
-
-        if (!template) {
-          toast.error('We found your payment, but could not recover your draft. Please contact support before retrying payment.');
-          setIsProcessing(false);
-          setSheetOpen(true);
-          return;
-        }
-
-        if (!storedTemplate) {
-          setSelectedDance(template);
-          localStorage.setItem(PENDING_TEMPLATE_KEY, JSON.stringify(template));
-          setPaidTemplateRecovered(true);
-        }
-
-        const photo = await loadPhotoFromDB();
-        if (!photo) {
-          toast.error('Payment confirmed. Please re-upload your photo to finish your video without paying again.');
-          setIsProcessing(false);
-          setHasSavedPhoto(false);
-          setSheetOpen(true);
-          return;
-        }
-
-        const formData = new FormData();
-        formData.append('session_id', sessionId!);
-        formData.append('motion_video_url', template.motionVideoUrl);
-        formData.append('mode', template.mode);
-        formData.append('character_orientation', template.characterOrientation);
-        formData.append('duration_seconds', String(template.durationSeconds));
-        formData.append('photo', photo);
-
-        const token = getToken();
-        const res = await fetch('/api/generate', {
-          method: 'POST',
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: formData,
-        });
-
-        const result = await res.json();
-        if (!res.ok) {
-          if (res.status === 401) {
-            router.replace(buildLoginRedirect(getCurrentPathWithSearch()));
-            return;
-          }
-
-          if (sessionId) {
-            toast.error(result.error || 'Payment confirmed, but generation failed. Fix your draft below and continue without paying again.');
-          } else {
-            toast.error(result.error || 'Generation failed');
-          }
-
-          setIsProcessing(false);
-          setSheetOpen(true);
-          return;
-        }
-
-        trackEvent('generation_start', {
-          templateId: template.id,
-          taskId: result.task_id,
-        });
-
-        localStorage.removeItem(PENDING_TEMPLATE_KEY);
-        localStorage.setItem(PENDING_SESSION_ID_KEY, sessionId!);
-        await clearPhotoDB();
-
-        router.replace(`/create/${result.task_id}`);
-      } catch {
-        toast.error('Something went wrong. Please try again.');
-        setIsProcessing(false);
-        setSheetOpen(true);
-      }
-    }
-
-    handlePaymentSuccess();
-  }, [fetchPaidSessionInfo, resolveTemplateById, router, sessionId]);
+    setSheetOpen(true);
+  }, [shouldResume]);
 
   const handleFileSelected = useCallback((file: File) => {
     setPhotoFile(file);
@@ -563,11 +382,16 @@ function HomeContent() {
 
     // If not logged in, redirect to login first
     if (!isAuthenticated) {
-      // Save state so we can resume after login
       selectTemplate(selectedDance);
       await savePhotoToDB(effectivePhoto);
       localStorage.setItem(PENDING_TEMPLATE_KEY, JSON.stringify(selectedDance));
       router.push(buildLoginRedirect('/?resume=1'));
+      return;
+    }
+
+    // If we already have a paymentIntentId (retry flow), go straight to generate
+    if (paymentIntentId) {
+      await submitGeneration(paymentIntentId, effectivePhoto);
       return;
     }
 
@@ -581,47 +405,7 @@ function HomeContent() {
       await savePhotoToDB(effectivePhoto);
       localStorage.setItem(PENDING_TEMPLATE_KEY, JSON.stringify(selectedDance));
 
-      if (sessionId) {
-        const formData = new FormData();
-        formData.append('session_id', sessionId);
-        formData.append('motion_video_url', selectedDance.motionVideoUrl);
-        formData.append('mode', selectedDance.mode);
-        formData.append('character_orientation', selectedDance.characterOrientation);
-        formData.append('duration_seconds', String(selectedDance.durationSeconds));
-        formData.append('photo', effectivePhoto);
-
-        const token = getToken();
-        const response = await fetch('/api/generate', {
-          method: 'POST',
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: formData,
-        });
-
-        const result = await response.json();
-        if (!response.ok) {
-          if (response.status === 401) {
-            router.replace(buildLoginRedirect(getCurrentPathWithSearch()));
-            return;
-          }
-
-          throw new Error(result.error || 'Failed to resume paid session');
-        }
-
-        trackEvent('generation_start', {
-          templateId: selectedDance.id,
-          taskId: result.task_id,
-        });
-
-        localStorage.removeItem(PENDING_TEMPLATE_KEY);
-        localStorage.setItem(PENDING_SESSION_ID_KEY, sessionId);
-        await clearPhotoDB();
-        setPaidTemplateRecovered(false);
-        router.replace(`/create/${result.task_id}`);
-        return;
-      }
-
+      // Get clientSecret for inline payment
       const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: {
@@ -638,28 +422,74 @@ function HomeContent() {
           router.replace(buildLoginRedirect(getCurrentPathWithSearch()));
           return;
         }
-        throw new Error(data.error || 'Failed to create checkout session');
+        throw new Error(data.error || 'Failed to create payment');
       }
 
-      if (!data.url) throw new Error('No checkout URL returned');
+      if (!data.clientSecret) throw new Error('No payment secret returned');
 
-      window.location.href = data.url;
-     } catch (error) {
-       const message = error instanceof Error ? error.message : 'Failed to start payment. Please try again.';
-       toast.error(message);
-       setIsProcessing(false);
-     }
+      setClientSecret(data.clientSecret);
+      setIsProcessing(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to start payment. Please try again.';
+      toast.error(message);
+      setIsProcessing(false);
+    }
   }
 
-  // Show processing overlay if returning from Stripe
-  if (isProcessing && sessionId) {
-    return (
-      <div className="min-h-screen bg-dark-gradient flex flex-col items-center justify-center text-white">
-        <div className="w-10 h-10 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mb-4" />
-        <p className="text-[15px] font-medium">Creating your video...</p>
-        <p className="text-[13px] text-white/40 mt-1">This will just take a moment</p>
-      </div>
-    );
+  async function submitGeneration(piId: string, photo?: File | null) {
+    const effectivePhoto = photo ?? photoFile ?? (await loadPhotoFromDB());
+    if (!effectivePhoto || !selectedDance) return;
+
+    setIsProcessing(true);
+    setClientSecret(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('payment_intent_id', piId);
+      formData.append('motion_video_url', selectedDance.motionVideoUrl);
+      formData.append('mode', selectedDance.mode);
+      formData.append('character_orientation', selectedDance.characterOrientation);
+      formData.append('duration_seconds', String(selectedDance.durationSeconds));
+      formData.append('photo', effectivePhoto);
+
+      const token = getToken();
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: formData,
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        if (response.status === 401) {
+          router.replace(buildLoginRedirect(getCurrentPathWithSearch()));
+          return;
+        }
+        throw new Error(result.error || 'Generation failed');
+      }
+
+      trackEvent('payment_complete', { amount: 2.99, paymentIntentId: piId });
+      trackEvent('generation_start', {
+        templateId: selectedDance.id,
+        taskId: result.task_id,
+      });
+
+      localStorage.removeItem(PENDING_TEMPLATE_KEY);
+      localStorage.setItem(PENDING_SESSION_ID_KEY, piId);
+      await clearPhotoDB();
+      router.replace(`/create/${result.task_id}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Generation failed. Please try again.';
+      toast.error(message);
+      setIsProcessing(false);
+    }
+  }
+
+  async function handlePaymentComplete(piId: string) {
+    setPaymentIntentId(piId);
+    await submitGeneration(piId);
   }
 
   return (
@@ -740,7 +570,7 @@ function HomeContent() {
           <p className="text-[11px] uppercase tracking-wider text-white/40 font-medium mb-2.5 px-1">
             Upload your photo
           </p>
-          {sessionId || paidTemplateRecovered ? (
+          {paymentIntentId ? (
             <p className="px-1 mb-2 text-[11px] text-emerald-300">
               Payment already confirmed. Update your photo and continue without paying again.
             </p>
@@ -754,16 +584,27 @@ function HomeContent() {
         </div>
 
         {/* Pay */}
-        <Button
-          variant="glow"
-          size="lg"
-          className="w-full"
-          disabled={(!photoFile && !hasSavedPhoto) || isProcessing}
-          isLoading={isProcessing}
-          onClick={handlePay}
-        >
-          {sessionId ? 'Continue Without Paying Again' : `Pay ${PRICE_DISPLAY} & Create Video`}
-        </Button>
+        {clientSecret ? (
+          <PaymentSheet
+            clientSecret={clientSecret}
+            onSuccess={handlePaymentComplete}
+            onError={(msg) => {
+              toast.error(msg);
+              setClientSecret(null);
+            }}
+          />
+        ) : (
+          <Button
+            variant="glow"
+            size="lg"
+            className="w-full"
+            disabled={(!photoFile && !hasSavedPhoto) || isProcessing}
+            isLoading={isProcessing}
+            onClick={handlePay}
+          >
+            {paymentIntentId ? 'Retry — No Extra Charge' : `Pay ${PRICE_DISPLAY} & Create Video`}
+          </Button>
+        )}
         <div className="flex items-center justify-center gap-1.5 mt-2 text-[11px] text-white/25">
           <svg aria-hidden="true" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />

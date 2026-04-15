@@ -14,29 +14,29 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const sessionId = req.nextUrl.searchParams.get('session_id');
-  if (!sessionId) {
-    return NextResponse.json({ error: 'Missing session_id' }, { status: 400 });
+  const paymentIntentId = req.nextUrl.searchParams.get('payment_intent_id');
+  if (!paymentIntentId) {
+    return NextResponse.json({ error: 'Missing payment_intent_id' }, { status: 400 });
   }
 
   try {
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
-    const metadata = session.metadata ?? {};
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+    const metadata = paymentIntent.metadata ?? {};
 
     if (metadata.userId !== currentUser.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     return NextResponse.json({
-      sessionId: session.id,
-      paymentStatus: session.payment_status,
+      paymentIntentId: paymentIntent.id,
+      status: paymentIntent.status,
       templateId: metadata.templateId || null,
       taskId: metadata.taskId || null,
       generationStatus: metadata.generationStatus || null,
-      paid: session.payment_status === 'paid',
+      paid: paymentIntent.status === 'succeeded',
     });
   } catch (error) {
-    console.error('Checkout session lookup error:', error);
-    return NextResponse.json({ error: 'Failed to load checkout session' }, { status: 500 });
+    console.error('Payment intent lookup error:', error);
+    return NextResponse.json({ error: 'Failed to load payment info' }, { status: 500 });
   }
 }
