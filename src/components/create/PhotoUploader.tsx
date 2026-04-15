@@ -125,7 +125,7 @@ export function PhotoUploader({
             </svg>
           </div>
           <span className="text-[13px] font-medium">Tap to upload photo</span>
-          <span className="text-[11px] text-white/20">A clear selfie works best</span>
+          <span className="text-[11px] text-white/20">A clear selfie works best (max 10MB)</span>
         </button>
       ) : previewUrl ? (
         <div className="relative aspect-[4/3] rounded-2xl overflow-hidden">
