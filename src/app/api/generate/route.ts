@@ -214,7 +214,7 @@ export async function POST(req: NextRequest) {
       contents: ttTemplateId
         ? [{ content_id: ttTemplateId, content_type: 'product', content_name: ttTemplateName || '' }]
         : undefined,
-      value: 2.99,
+      value: 1.99,
       currency: 'USD',
     });
 

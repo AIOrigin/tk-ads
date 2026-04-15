@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
               name: 'Dance Video Generation',
               description: 'Create your own AI dance video',
             },
-            unit_amount: 299, // $2.99 in cents
+            unit_amount: 199, // $1.99 in cents
           },
           quantity: 1,
         },
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
       contents: templateId
         ? [{ content_id: templateId, content_type: 'product', content_name: templateName || '' }]
         : undefined,
-      value: 2.99,
+      value: 1.99,
       currency: 'USD',
     });
 

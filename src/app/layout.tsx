@@ -7,7 +7,7 @@ import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 export const metadata: Metadata = {
   title: 'Dance Like Me — Create Your Own Dance Video',
   description:
-    'Upload a selfie and create your own AI dance video in 1 minute. Choose from trending dance styles. Only $2.99.',
+    'Upload a selfie and create your own AI dance video in 1 minute. Choose from trending dance styles. Only $1.99.',
   openGraph: {
     title: 'Dance Like Me — Create Your Own Dance Video',
     description: 'Upload a selfie. Pick a dance. Get your video in 1 minute.',

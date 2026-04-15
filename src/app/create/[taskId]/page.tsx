@@ -141,7 +141,7 @@ function ProgressContent() {
     const videoUrl = status?.videos?.[0]?.video_url;
     if (!videoUrl) return;
 
-    trackEvent('video_download', { taskId, amount: 2.99 });
+    trackEvent('video_download', { taskId, amount: 1.99 });
 
     // TikTok WebView: copy link since download is blocked
     if (isTikTok) {

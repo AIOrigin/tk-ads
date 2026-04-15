@@ -461,7 +461,7 @@ function HomeContent() {
         try { savedTemplate = savedRaw ? JSON.parse(savedRaw) as Template : null; } catch { /* ignore */ }
         const purchaseEventId = generateEventId();
         trackEvent('payment_complete', {
-          amount: 2.99,
+          amount: 1.99,
           sessionId: sessionId!,
           templateId: savedTemplate?.id || '',
           templateName: savedTemplate?.name || '',
