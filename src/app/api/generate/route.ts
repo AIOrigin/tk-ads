@@ -138,18 +138,26 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Grant credits to user before calling tool-api
-    const creditsNeeded = calculateCredits(mode, parseInt(durationSeconds, 10));
-    const grantResult = await grantCredits(currentUser.id, creditsNeeded);
-    if (!grantResult.ok) {
-      usedSessions.delete(sessionId);
-      await stripe.checkout.sessions.update(sessionId, {
-        metadata: { ...metadata, generationStatus: 'ready' },
-      });
-      return NextResponse.json(
+    // Grant credits to user before calling tool-api (only once per session)
+    if (metadata.creditsGranted !== 'true') {
+      const creditsNeeded = calculateCredits(mode, parseInt(durationSeconds, 10));
+      const grantResult = await grantCredits(currentUser.id, creditsNeeded);
+      if (!grantResult.ok) {
+        usedSessions.delete(sessionId);
+        await stripe.checkout.sessions.update(sessionId, {
+          metadata: { ...metadata, generationStatus: 'ready' },
+        });
+        return NextResponse.json(
         { error: grantResult.error || 'Failed to prepare credits for generation. Please try again.' },
         { status: 500 }
       );
+      }
+
+      // Mark credits as granted so retries don't double-grant
+      metadata.creditsGranted = 'true';
+      await stripe.checkout.sessions.update(sessionId, {
+        metadata: { ...metadata, generationStatus: 'processing', creditsGranted: 'true' },
+      });
     }
 
     // Forward to tool-api with user's JWT (tool-api validates JWT for user identity)
