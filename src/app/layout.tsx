@@ -4,6 +4,7 @@ import { Analytics } from '@vercel/analytics/next';
 import './globals.css';
 import { ToastContainer } from '@/components/ui/Toast';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
+import { PostHogProvider } from '@/components/PostHogProvider';
 
 export const metadata: Metadata = {
   title: 'Dance Like Me — Create Your Own Dance Video',
@@ -63,13 +64,15 @@ fbq('track', 'PageView');`}
         </noscript>
       </head>
       <body className="min-h-full bg-black text-gray-900 overscroll-none font-sans">
-        <ErrorBoundary>
-          <ToastContainer />
-          <main className="min-h-screen">
-            {children}
-          </main>
-        </ErrorBoundary>
-        <Analytics />
+        <PostHogProvider>
+          <ErrorBoundary>
+            <ToastContainer />
+            <main className="min-h-screen">
+              {children}
+            </main>
+          </ErrorBoundary>
+          <Analytics />
+        </PostHogProvider>
       </body>
     </html>
   );

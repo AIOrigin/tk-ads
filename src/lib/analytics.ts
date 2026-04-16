@@ -1,3 +1,5 @@
+import posthog from 'posthog-js';
+
 type EventProperties = Record<string, string | number | boolean>;
 
 // TikTok standard event names matching the funnel configured in TikTok Ads Manager
@@ -233,6 +235,11 @@ export function trackEvent(eventName: string, properties?: EventProperties) {
         fbq('track', metaMapping.event, metaParams);
       }
     }
+  }
+
+  // PostHog
+  if (typeof window !== 'undefined') {
+    posthog.capture(eventName, props);
   }
 
   // TikTok Events API (server-side) for events without dedicated server routes
