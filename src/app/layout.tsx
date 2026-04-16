@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
+import { Analytics } from '@vercel/analytics/next';
 import './globals.css';
 import { ToastContainer } from '@/components/ui/Toast';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
@@ -68,6 +69,7 @@ fbq('track', 'PageView');`}
             {children}
           </main>
         </ErrorBoundary>
+        <Analytics />
       </body>
     </html>
   );
