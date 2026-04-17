@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { sendOTP } from '@/lib/api/user-api';
 import { toast } from '@/components/ui/Toast';
 import { sanitizeRedirect } from '@/lib/funnel';
+import { trackEvent } from '@/lib/analytics';
 
 export function EmailLoginForm({ redirect }: { redirect: string }) {
   const [email, setEmail] = useState('');
@@ -18,6 +19,7 @@ export function EmailLoginForm({ redirect }: { redirect: string }) {
 
     setIsLoading(true);
     const safeRedirect = sanitizeRedirect(redirect);
+    trackEvent('login_start', { method: 'email' });
     try {
       await sendOTP(email.trim());
       router.push(

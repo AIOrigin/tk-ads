@@ -115,10 +115,16 @@ async function sha256(value: string): Promise<string> {
 }
 
 /**
- * Call after login/signup so TikTok can match conversions to ad clicks.
- * Must be called before any ttq.track() on pages where PII postback is expected.
+ * Call after login/signup so TikTok can match conversions to ad clicks,
+ * and so PostHog can stitch the anonymous session to the logged-in user.
+ * PostHog gets plaintext userId + email (required for user merging);
+ * TikTok gets SHA-256-hashed PII per its postback spec.
  */
 export async function identifyUser(email: string, userId: string) {
+  if (typeof window !== 'undefined') {
+    posthog.identify(userId, { email });
+  }
+
   if (typeof window === 'undefined' || !('ttq' in window)) return;
   const ttq = (
     window as unknown as {
@@ -135,6 +141,11 @@ export async function identifyUser(email: string, userId: string) {
     email: hashedEmail,
     external_id: hashedId,
   });
+}
+
+/** Call on logout so PostHog issues a fresh anonymous distinct_id. */
+export function resetUser() {
+  if (typeof window !== 'undefined') posthog.reset();
 }
 
 // --- Read TikTok cookies for forwarding to server ---

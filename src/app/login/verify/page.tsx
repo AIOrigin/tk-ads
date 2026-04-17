@@ -30,6 +30,7 @@ function VerifyContent() {
         let accessToken: string;
         let isFirstLogin: boolean;
         try {
+          trackEvent('login_verify_submit', { method: 'email' });
           const result = await verifyOTP(email, code);
           accessToken = result.accessToken;
           isFirstLogin = result.isFirstLogin;

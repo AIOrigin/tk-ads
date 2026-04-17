@@ -32,6 +32,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: () => {
     clearToken();
+    // Reset PostHog so the next session gets a fresh anonymous distinct_id.
+    // Dynamic import keeps analytics out of the initial SSR bundle path.
+    import('@/lib/analytics').then(({ resetUser }) => resetUser()).catch(() => {});
     set({ token: null, user: null, isAuthenticated: false, isLoading: false });
   },
 
