@@ -114,6 +114,14 @@ async function sha256(value: string): Promise<string> {
     .join('');
 }
 
+// Tracks the most recent userId PostHog was identified as in this tab.
+// Lets us detect cross-user identify (e.g. stored token from a previous test
+// session hydrates as user A, then the real user logs in as user B). Without
+// resetting first, posthog.identify(B) is a silent no-op on an already-
+// identified session — B's distinct_id becomes an orphan person with no
+// $identify event linking prior anon events.
+let lastIdentifiedUserId: string | null = null;
+
 /**
  * Call after login/signup so TikTok can match conversions to ad clicks,
  * and so PostHog can stitch the anonymous session to the logged-in user.
@@ -122,7 +130,11 @@ async function sha256(value: string): Promise<string> {
  */
 export async function identifyUser(email: string, userId: string) {
   if (typeof window !== 'undefined') {
+    if (lastIdentifiedUserId && lastIdentifiedUserId !== userId) {
+      posthog.reset();
+    }
     posthog.identify(userId, { email });
+    lastIdentifiedUserId = userId;
   }
 
   if (typeof window === 'undefined' || !('ttq' in window)) return;
@@ -146,6 +158,7 @@ export async function identifyUser(email: string, userId: string) {
 /** Call on logout so PostHog issues a fresh anonymous distinct_id. */
 export function resetUser() {
   if (typeof window !== 'undefined') posthog.reset();
+  lastIdentifiedUserId = null;
 }
 
 // --- Read TikTok cookies for forwarding to server ---

@@ -357,6 +357,11 @@ function HomeContent() {
 
       if (matchedTemplate) {
         setSelectedDance(matchedTemplate);
+        trackEvent('template_select', {
+          templateId: matchedTemplate.id,
+          templateName: matchedTemplate.name,
+          source: 'restore',
+        });
       }
 
       return true;
@@ -491,6 +496,11 @@ function HomeContent() {
           setSelectedDance(template);
           localStorage.setItem(PENDING_TEMPLATE_KEY, JSON.stringify(template));
           setPaidTemplateRecovered(true);
+          trackEvent('template_select', {
+            templateId: template.id,
+            templateName: template.name,
+            source: 'resume_paid',
+          });
         }
 
         const photo = await loadPhotoFromDB();
@@ -800,6 +810,15 @@ function HomeContent() {
             className="w-full text-base font-semibold"
             onClick={() => {
               trackEvent('start_create_flow', { cta: 'create_yours' });
+              // Fire template_select for the default-selected dance so the
+              // funnel step is not blocked for users who accept the default
+              // without tapping DanceSelector (selectedDance = allTemplates[0]
+              // on mount — see useState default).
+              trackEvent('template_select', {
+                templateId: selectedDance.id,
+                templateName: selectedDance.name,
+                source: 'default',
+              });
               setSheetOpen(true);
             }}
           >
