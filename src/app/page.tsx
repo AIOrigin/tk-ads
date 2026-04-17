@@ -567,6 +567,7 @@ function HomeContent() {
   const handleFileSelected = useCallback((file: File) => {
     setPhotoFile(file);
     setHasSavedPhoto(true);
+    trackEvent('photo_upload', { sizeBytes: file.size, mime: file.type });
   }, []);
 
   async function handlePay() {
@@ -797,7 +798,10 @@ function HomeContent() {
             variant="glow"
             size="lg"
             className="w-full text-base font-semibold"
-            onClick={() => setSheetOpen(true)}
+            onClick={() => {
+              trackEvent('start_create_flow', { cta: 'create_yours' });
+              setSheetOpen(true);
+            }}
           >
             Create Yours
           </Button>
@@ -820,7 +824,11 @@ function HomeContent() {
           selected={selectedDance}
           onSelect={(t) => {
             setSelectedDance(t);
+            // view_content is the ad-pixel ViewContent event (TikTok/Meta/GA).
+            // template_select is the PostHog-only funnel step — both fire together
+            // so the product funnel has a distinct signal from the ad conversion event.
             trackEvent('view_content', { templateId: t.id, templateName: t.name, amount: 1.99 });
+            trackEvent('template_select', { templateId: t.id, templateName: t.name });
           }}
         />
 
