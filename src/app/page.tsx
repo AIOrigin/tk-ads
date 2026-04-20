@@ -898,7 +898,7 @@ function HomeContent() {
       {heroElement}
 
       {/* Content overlay */}
-      <div className="relative z-10 min-h-screen flex flex-col justify-end px-6 pb-10">
+      <div className="relative z-10 h-dvh flex flex-col justify-end px-6 pb-10">
         {/* Bottom content — increase mb to push higher */}
         <div className="mb-10">
           <h1 className="text-[28px] font-bold leading-[1.15] tracking-tight mb-2">
