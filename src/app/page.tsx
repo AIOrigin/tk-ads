@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect, Suspense } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useCreateStore } from '@/lib/store/create-store';
@@ -73,6 +73,126 @@ async function clearPhotoDB(): Promise<void> {
     };
     tx.onerror = () => reject(tx.error);
   });
+}
+
+// --- Hero image data ---
+const HERO_IMAGES = [
+  '/heroes/penguin.webp',
+  '/heroes/penguin2.webp',
+  '/heroes/seadog.webp',
+  '/heroes/seadog2.webp',
+  '/heroes/seadog3.webp',
+  '/heroes/seadog4.webp',
+  '/heroes/seadog5.webp',
+  '/heroes/dinosaur.webp',
+  '/heroes/dinosaur2.webp',
+  '/heroes/dinosaur3.webp',
+  '/heroes/dinosaur4.webp',
+  '/heroes/squirrel.webp',
+];
+
+type HeroMode = 'video' | 'mosaic' | 'carousel';
+
+// --- Tilted mosaic grid of character images (static, randomized per load) ---
+function HeroMosaic() {
+  const [columns, setColumns] = useState([
+    HERO_IMAGES.slice(0, 4),
+    HERO_IMAGES.slice(4, 8),
+    HERO_IMAGES.slice(8, 12),
+  ]);
+
+  useEffect(() => {
+    // Shuffle on client only to avoid hydration mismatch
+    const shuffled = [...HERO_IMAGES];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    setColumns([
+      shuffled.slice(0, 4),
+      shuffled.slice(4, 8),
+      shuffled.slice(8, 12),
+    ]);
+  }, []);
+
+  const offsets = ['0%', '-25%', '-10%'];
+
+  return (
+    <div className="fixed inset-0 overflow-hidden">
+      <div
+        className="absolute inset-0 flex gap-2.5 justify-center origin-center"
+        style={{ transform: 'rotate(-12deg) scale(1.45)', top: '-15%' }}
+      >
+        {columns.map((col, colIdx) => (
+          <div
+            key={colIdx}
+            className="flex flex-col gap-2.5"
+            style={{ width: '34%', marginTop: offsets[colIdx] }}
+          >
+            {col.map((src, imgIdx) => (
+              <img
+                key={imgIdx}
+                src={src}
+                alt=""
+                className="w-full aspect-[9/16] object-cover rounded-2xl"
+              />
+            ))}
+          </div>
+        ))}
+      </div>
+      {/* Gradient overlays — slightly stronger for readability over colorful images */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/20 to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 h-[55%] bg-gradient-to-t from-black via-black/85 to-transparent" />
+    </div>
+  );
+}
+
+// --- Option 4: Image carousel with crossfade ---
+function HeroCarousel() {
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveIndex((prev) => (prev + 1) % HERO_IMAGES.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="fixed inset-0">
+      {HERO_IMAGES.map((src, i) => (
+        <img
+          key={src}
+          src={src}
+          alt=""
+          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out ${
+            i === activeIndex ? 'opacity-100' : 'opacity-0'
+          }`}
+        />
+      ))}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 h-[50%] bg-gradient-to-t from-black via-black/80 to-transparent" />
+    </div>
+  );
+}
+
+// --- Original video hero ---
+function HeroVideo() {
+  return (
+    <div className="fixed inset-0">
+      <video
+        autoPlay
+        muted
+        loop
+        playsInline
+        suppressHydrationWarning
+        src="https://assets.tool.elser.ai/community/ai-pet-dance/pets/1.mp4"
+        className="w-full h-full object-cover"
+      />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 h-[50%] bg-gradient-to-t from-black via-black/80 to-transparent" />
+    </div>
+  );
 }
 
 // --- Dance Selector (horizontal scroll) ---
@@ -759,26 +879,26 @@ function HomeContent() {
     );
   }
 
+  const heroMode: HeroMode = (searchParams.get('hero') as HeroMode) || 'video';
+
+  const heroElement = useMemo(() => {
+    switch (heroMode) {
+      case 'mosaic':
+        return <HeroMosaic />;
+      case 'carousel':
+        return <HeroCarousel />;
+      default:
+        return <HeroVideo />;
+    }
+  }, [heroMode]);
+
   return (
     <div className="min-h-screen bg-dark-gradient text-white">
-      {/* Full-screen hero video */}
-      <div className="fixed inset-0">
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
-          suppressHydrationWarning
-          src="https://assets.tool.elser.ai/community/ai-pet-dance/pets/1.mp4"
-          className="w-full h-full object-cover"
-        />
-        {/* Gradient overlays */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-transparent" />
-        <div className="absolute inset-x-0 bottom-0 h-[50%] bg-gradient-to-t from-black via-black/80 to-transparent" />
-      </div>
+      {/* Full-screen hero */}
+      {heroElement}
 
       {/* Content overlay */}
-      <div className="relative z-10 min-h-screen flex flex-col justify-end px-6 pb-6">
+      <div className="relative z-10 min-h-screen flex flex-col justify-end px-6 pb-10">
         {/* Top badge */}
         <div className="absolute top-12 left-6">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full glass text-[11px] font-medium text-white/90">
@@ -789,49 +909,38 @@ function HomeContent() {
           </div>
         </div>
 
-        {/* Bottom content */}
-        <div>
+        {/* Bottom content — increase mb to push higher */}
+        <div className="mb-10">
           <h1 className="text-[28px] font-bold leading-[1.15] tracking-tight mb-2">
             Create Your Own<br />
             <span className="bg-gradient-to-r from-purple-400 to-violet-300 bg-clip-text text-transparent">
               Dance Video
             </span>
           </h1>
-          <p className="text-[14px] text-white/50 mb-5 leading-relaxed">
-            Upload a selfie. Pick a dance. Get your video.
-          </p>
-
           {/* My Videos */}
           <MyVideos videos={myVideos} />
 
-          <Button
-            variant="glow"
-            size="lg"
-            className="w-full text-base font-semibold"
-            onClick={() => {
-              trackEvent('start_create_flow', { cta: 'create_yours' });
-              // Fire template_select for the default-selected dance so the
-              // funnel step is not blocked for users who accept the default
-              // without tapping DanceSelector (selectedDance = allTemplates[0]
-              // on mount — see useState default).
-              trackEvent('template_select', {
-                templateId: selectedDance.id,
-                templateName: selectedDance.name,
-                source: 'default',
-              });
-              setSheetOpen(true);
-            }}
-          >
-            Create Yours
-          </Button>
+          <div className="flex justify-center">
+            <Button
+              variant="glow"
+              className="w-[70%] h-16 text-[28px] font-bold rounded-2xl animate-glow-pulse !shadow-none"
+              onClick={() => {
+                trackEvent('start_create_flow', { cta: 'create_yours' });
+                trackEvent('template_select', {
+                  templateId: selectedDance.id,
+                  templateName: selectedDance.name,
+                  source: 'default',
+                });
+                setSheetOpen(true);
+              }}
+            >
+              Try Now
+            </Button>
+          </div>
 
           {/* Trust line */}
           <div className="flex items-center justify-center gap-4 mt-4 text-[11px] text-white/25">
-            <span>5-10 min delivery</span>
-            <span>&middot;</span>
-            <span>No watermark</span>
-            <span>&middot;</span>
-            <span>Secure payment</span>
+            <span>Sign up to get 100 points</span>
           </div>
         </div>
       </div>
