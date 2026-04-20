@@ -879,7 +879,7 @@ function HomeContent() {
     );
   }
 
-  const heroMode: HeroMode = (searchParams.get('hero') as HeroMode) || 'video';
+  const heroMode: HeroMode = (searchParams.get('hero') as HeroMode) || 'mosaic';
 
   const heroElement = useMemo(() => {
     switch (heroMode) {
