@@ -899,16 +899,6 @@ function HomeContent() {
 
       {/* Content overlay */}
       <div className="relative z-10 min-h-screen flex flex-col justify-end px-6 pb-10">
-        {/* Top badge */}
-        <div className="absolute top-12 left-6">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full glass text-[11px] font-medium text-white/90">
-              <svg aria-hidden="true" className="w-3 h-3 text-purple-400" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-            </svg>
-            AI-Powered
-          </div>
-        </div>
-
         {/* Bottom content — increase mb to push higher */}
         <div className="mb-10">
           <h1 className="text-[28px] font-bold leading-[1.15] tracking-tight mb-2">
