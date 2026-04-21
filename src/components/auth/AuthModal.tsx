@@ -13,10 +13,9 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  variant?: 'centered' | 'sheet';
 }
 
-export function AuthModal({ isOpen, onClose, onSuccess, variant = 'sheet' }: AuthModalProps) {
+export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
   const [step, setStep] = useState<'email' | 'otp'>('email');
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -197,42 +196,9 @@ export function AuthModal({ isOpen, onClose, onSuccess, variant = 'sheet' }: Aut
     </div>
   );
 
-  if (variant === 'sheet') {
-    return (
-      <BottomSheet isOpen={isOpen} onClose={handleClose}>
-        {content}
-      </BottomSheet>
-    );
-  }
-
-  // Centered Modal Variant
   return (
-    <>
-      <button
-        type="button"
-        aria-label="Close modal"
-        className={`fixed inset-0 bg-black/20 z-40 transition-opacity duration-300 ${
-          isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
-        }`}
-        onClick={handleClose}
-      />
-      <div 
-        className={`fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none transition-all duration-300 ${
-          isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
-        }`}
-      >
-        <div className={`bg-[#1a1a1a] border border-white/10 w-full max-w-[320px] rounded-2xl p-5 shadow-2xl relative ${isOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}>
-          <button 
-            onClick={handleClose}
-            className="absolute top-3 right-3 text-white/40 hover:text-white transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-          {content}
-        </div>
-      </div>
-    </>
+    <BottomSheet isOpen={isOpen} onClose={handleClose}>
+      {content}
+    </BottomSheet>
   );
 }

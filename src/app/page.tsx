@@ -329,7 +329,6 @@ function HomeContent() {
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const authStyle = (searchParams.get('auth_style') as 'centered' | 'sheet') || 'sheet';
   
   const [selectedDance, setSelectedDance] = useState<Template>(allTemplates[0]);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -840,7 +839,6 @@ function HomeContent() {
             setShowAuthModal(false);
             setTimeout(() => handlePay(), 300);
           }}
-          variant={authStyle}
         />
       </>
     );
@@ -950,7 +948,6 @@ function HomeContent() {
           // to continue the generation process seamlessly.
           setTimeout(() => handlePay(), 300);
         }}
-        variant={authStyle}
       />
     </div>
   );
