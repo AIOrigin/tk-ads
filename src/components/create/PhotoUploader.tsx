@@ -98,7 +98,6 @@ export function PhotoUploader({
   }
 
   function handleReupload() {
-    setPreviewUrl(null);
     if (inputRef.current) inputRef.current.value = '';
     inputRef.current?.click();
   }
