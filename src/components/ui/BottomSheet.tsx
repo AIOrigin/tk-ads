@@ -119,7 +119,7 @@ export function BottomSheet({ isOpen, onClose, children }: BottomSheetProps) {
           <div className="sticky top-0 z-10 flex justify-center pt-3 pb-2 bg-[#1a1a1a] rounded-t-3xl cursor-grab active:cursor-grabbing">
             <div className="w-9 h-[5px] rounded-full bg-white/30" />
           </div>
-          <div className="px-5 pb-8 pt-1">{children}</div>
+          <div className="px-5 pb-6 pt-0">{children}</div>
         </div>
       </div>
     </>

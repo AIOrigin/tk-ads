@@ -95,7 +95,7 @@ export const OTPInput = forwardRef<OTPInputHandle, OTPInputProps>(function OTPIn
   }
 
   return (
-    <div className="flex justify-center gap-2.5">
+    <div className="flex justify-center gap-2">
       {values.map((val, i) => (
         <input
           key={i}
@@ -109,7 +109,7 @@ export const OTPInput = forwardRef<OTPInputHandle, OTPInputProps>(function OTPIn
           onKeyDown={(e) => handleKeyDown(i, e)}
           onPaste={handlePaste}
           autoFocus={i === 0}
-          className={`w-12 h-14 text-2xl text-center text-white bg-white/[0.06] border rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 transition-colors ${
+          className={`w-11 h-12 text-xl text-center text-white bg-white/[0.06] border rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 transition-colors ${
             error ? 'border-red-500 animate-shake' : 'border-white/15'
           }`}
         />
