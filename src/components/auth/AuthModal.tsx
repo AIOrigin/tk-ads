@@ -131,8 +131,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, variant = 'sheet' }: Aut
       {step === 'email' ? (
         <>
           <div className="text-center mb-5">
-            <h2 className="text-lg font-bold tracking-tight mb-1">Sign in to continue</h2>
-            <p className="text-xs text-white/40">Enter your email to create an AI dance video</p>
+            <h2 className="text-lg font-bold tracking-tight">Sign in to continue</h2>
           </div>
           <form onSubmit={handleEmailSubmit} className="space-y-3">
             <input
@@ -153,11 +152,6 @@ export function AuthModal({ isOpen, onClose, onSuccess, variant = 'sheet' }: Aut
               Send Code
             </Button>
           </form>
-          <p className="mt-5 text-center text-[10px] text-white/30 leading-relaxed">
-            By continuing you agree to our{' '}
-            <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline hover:text-white/60">Terms</a> &{' '}
-            <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-white/60">Privacy Policy</a>
-          </p>
         </>
       ) : (
         <>
