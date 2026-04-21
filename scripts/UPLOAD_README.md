@@ -32,7 +32,7 @@ aws s3 ls | grep elser-tool
 
 If the name differs, adjust the commands below.
 
-CloudFront origin path is `/public` (`elser-infrastructure/service/tool/cloudfront.tf`), so an object at key `public/community/ai-pet-dance/v2/previews/hammer.webp` is served at `https://assets.tool.elser.ai/community/ai-pet-dance/v2/previews/hammer.webp`.
+CloudFront origin path is `/public` (`elser-infrastructure/service/tool/cloudfront.tf`), so an object at key `public/community/ai-pet-dance/motions/previews/hammer.webp` is served at `https://assets.tool.elser.ai/community/ai-pet-dance/motions/previews/hammer.webp`.
 
 ## Step 3 — upload
 
@@ -40,7 +40,7 @@ Templates (mp4):
 
 ```bash
 aws s3 sync build/dance-assets/templates/ \
-  s3://elser-tool-s3-prod-uses1/public/community/ai-pet-dance/v2/templates/ \
+  s3://elser-tool-s3-prod-uses1/public/community/ai-pet-dance/motions/templates/ \
   --content-type video/mp4 \
   --cache-control "public, max-age=31536000, immutable"
 ```
@@ -49,7 +49,7 @@ Previews (webp):
 
 ```bash
 aws s3 sync build/dance-assets/previews/ \
-  s3://elser-tool-s3-prod-uses1/public/community/ai-pet-dance/v2/previews/ \
+  s3://elser-tool-s3-prod-uses1/public/community/ai-pet-dance/motions/previews/ \
   --content-type image/webp \
   --cache-control "public, max-age=31536000, immutable"
 ```
@@ -63,7 +63,7 @@ for slug in side-step hammer ghost-scream knife-hand wiggle stomp wild-yell tran
   for kind in previews/${slug}.webp templates/${slug}.mp4; do
     printf '%s  ' "$kind"
     curl -sIo /dev/null -w "%{http_code}  %{size_download}\n" \
-      "https://assets.tool.elser.ai/community/ai-pet-dance/v2/${kind}"
+      "https://assets.tool.elser.ai/community/ai-pet-dance/motions/${kind}"
   done
 done
 ```
@@ -80,5 +80,5 @@ npm run dev
 Open http://localhost:3000. In the "Choose a dance" row:
 
 - Each tile should show a looping penguin/mouse animation (WebP), not raw motion footage.
-- In DevTools Network, tile fetches should hit `community/ai-pet-dance/v2/previews/*.webp` with 200s.
+- In DevTools Network, tile fetches should hit `community/ai-pet-dance/motions/previews/*.webp` with 200s.
 - On "Create", the request to `/api/generate` (or `/api/generate-free`) must contain `motion_video_url=...v2/templates/{slug}.mp4` (the MP4, not the WebP).
