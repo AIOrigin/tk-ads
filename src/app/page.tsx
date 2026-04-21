@@ -233,13 +233,11 @@ function DanceSelector({
                     : ''
                 }`}
               >
-                <video
-                  src={t.motionVideoUrl}
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  preload="auto"
+                <img
+                  src={t.thumbnailUrl}
+                  alt={t.name}
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-full object-cover"
                 />
                 {/* Duration */}
