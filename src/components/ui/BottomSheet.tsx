@@ -96,7 +96,7 @@ export function BottomSheet({ isOpen, onClose, children }: BottomSheetProps) {
         ref={backdropRef}
         type="button"
         aria-label="Close sheet"
-        className={`fixed inset-0 bg-black/40 z-40 transition-opacity duration-300 ${
+        className={`fixed inset-0 bg-black/20 z-40 transition-opacity duration-300 ${
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         onClick={onClose}
