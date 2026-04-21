@@ -227,7 +227,7 @@ export function AuthModal({ isOpen, onClose, onSuccess, variant = 'sheet' }: Aut
           isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
         }`}
       >
-        <div className="bg-[#1a1a1a] border border-white/10 w-full max-w-[360px] rounded-2xl p-6 pointer-events-auto shadow-2xl relative">
+        <div className={`bg-[#1a1a1a] border border-white/10 w-full max-w-[360px] rounded-2xl p-6 shadow-2xl relative ${isOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}>
           <button 
             onClick={handleClose}
             className="absolute top-4 right-4 text-white/40 hover:text-white transition-colors"

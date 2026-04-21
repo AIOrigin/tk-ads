@@ -777,72 +777,72 @@ function HomeContent() {
 
   if (!showHome) {
     return (
-      <div className="min-h-screen bg-dark-gradient text-white">
-        <div className="px-5 pt-6 pb-8 max-w-lg mx-auto">
-          <h1 className="text-[22px] font-bold leading-[1.15] tracking-tight mb-5">
-            Create Your Own{' '}
-            <span className="bg-gradient-to-r from-purple-400 to-violet-300 bg-clip-text text-transparent">
-              Dance Video
-            </span>
-          </h1>
+      <>
+        <div className="min-h-screen bg-dark-gradient text-white">
+          <div className="px-5 pt-6 pb-8 max-w-lg mx-auto">
+            <h1 className="text-[22px] font-bold leading-[1.15] tracking-tight mb-5">
+              Create Your Own{' '}
+              <span className="bg-gradient-to-r from-purple-400 to-violet-300 bg-clip-text text-transparent">
+                Dance Video
+              </span>
+            </h1>
 
-          <MyVideos videos={myVideos} />
+            <MyVideos videos={myVideos} />
 
-          <DanceSelector
-            selected={selectedDance}
-            onSelect={(t) => {
-              setSelectedDance(t);
-              trackEvent('view_content', { templateId: t.id, templateName: t.name, amount: 1.99 });
-              trackEvent('template_select', { templateId: t.id, templateName: t.name });
-            }}
-          />
-
-          <div className="mb-5">
-            <p className="text-[11px] uppercase tracking-wider text-white/40 font-medium mb-2.5 px-1">
-              Upload your photo
-            </p>
-            {sessionId || paidTemplateRecovered ? (
-              <p className="px-1 mb-2 text-[11px] text-emerald-300">
-                Payment already confirmed. Update your photo and continue without paying again.
-              </p>
-            ) : null}
-            <PhotoUploader
-              onFileSelected={handleFileSelected}
-              selectedFile={photoFile}
-              hasSavedPhoto={hasSavedPhoto}
+            <DanceSelector
+              selected={selectedDance}
+              onSelect={(t) => {
+                setSelectedDance(t);
+                trackEvent('view_content', { templateId: t.id, templateName: t.name, amount: 1.99 });
+                trackEvent('template_select', { templateId: t.id, templateName: t.name });
+              }}
             />
-          </div>
 
-          <Button
-            variant="glow"
-            size="lg"
-            className="w-full"
-            disabled={(!photoFile && !hasSavedPhoto) || isProcessing}
-            isLoading={isProcessing}
-            onClick={handlePay}
-          >
-            {sessionId ? 'Continue Without Paying Again' : 'Create Video'}
-          </Button>
-          <div className="flex items-center justify-center gap-1.5 mt-2 text-[11px] text-white/25">
-            <svg aria-hidden="true" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-            </svg>
-            Secure payment via Stripe
+            <div className="mb-5">
+              <p className="text-[11px] uppercase tracking-wider text-white/40 font-medium mb-2.5 px-1">
+                Upload your photo
+              </p>
+              {sessionId || paidTemplateRecovered ? (
+                <p className="px-1 mb-2 text-[11px] text-emerald-300">
+                  Payment already confirmed. Update your photo and continue without paying again.
+                </p>
+              ) : null}
+              <PhotoUploader
+                onFileSelected={handleFileSelected}
+                selectedFile={photoFile}
+                hasSavedPhoto={hasSavedPhoto}
+              />
+            </div>
+
+            <Button
+              variant="glow"
+              size="lg"
+              className="w-full"
+              disabled={(!photoFile && !hasSavedPhoto) || isProcessing}
+              isLoading={isProcessing}
+              onClick={handlePay}
+            >
+              {sessionId ? 'Continue Without Paying Again' : 'Create Video'}
+            </Button>
+            <div className="flex items-center justify-center gap-1.5 mt-2 text-[11px] text-white/25">
+              <svg aria-hidden="true" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+              </svg>
+              Secure payment via Stripe
+            </div>
           </div>
         </div>
-      </div>
-      
-      <AuthModal 
-        isOpen={showAuthModal} 
-        onClose={() => setShowAuthModal(false)}
-        onSuccess={() => {
-          setShowAuthModal(false);
-          // When login finishes successfully, trigger handlePay automatically
-          // to continue the generation process seamlessly.
-          setTimeout(() => handlePay(), 300);
-        }}
-        variant={authStyle}
-      />
+        
+        <AuthModal 
+          isOpen={showAuthModal} 
+          onClose={() => setShowAuthModal(false)}
+          onSuccess={() => {
+            setShowAuthModal(false);
+            setTimeout(() => handlePay(), 300);
+          }}
+          variant={authStyle}
+        />
+      </>
     );
   }
 
