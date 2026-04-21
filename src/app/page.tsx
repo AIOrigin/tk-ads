@@ -214,7 +214,7 @@ function DanceSelector({
       </p>
       <div
         ref={scrollRef}
-        className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory"
+        className="flex gap-2.5 overflow-x-auto pb-2 px-1 scrollbar-hide snap-x snap-mandatory"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         {allTemplates.map((t) => {
@@ -231,7 +231,7 @@ function DanceSelector({
               <div
                 className={`aspect-[9/16] rounded-xl overflow-hidden relative ${
                   isActive
-                    ? 'ring-2 ring-purple-500 shadow-[0_0_12px_rgba(168,85,247,0.4)]'
+                    ? 'ring-2 ring-purple-500 ring-offset-2 ring-offset-[#1a1a1a] shadow-[0_0_12px_rgba(168,85,247,0.4)]'
                     : ''
                 }`}
               >
