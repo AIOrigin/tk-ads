@@ -751,17 +751,6 @@ function HomeContent() {
      }
   }
 
-  // Show processing overlay if returning from Stripe
-  if (isProcessing && sessionId) {
-    return (
-      <div className="min-h-screen bg-dark-gradient flex flex-col items-center justify-center text-white">
-        <div className="w-10 h-10 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mb-4" />
-        <p className="text-[15px] font-medium">Creating your video...</p>
-        <p className="text-[13px] text-white/40 mt-1">This will just take a moment</p>
-      </div>
-    );
-  }
-
   const heroMode: HeroMode = (searchParams.get('hero') as HeroMode) || 'mosaic';
 
   const heroElement = useMemo(() => {
@@ -774,6 +763,17 @@ function HomeContent() {
         return <HeroVideo />;
     }
   }, [heroMode]);
+
+  // Show processing overlay if returning from Stripe
+  if (isProcessing && sessionId) {
+    return (
+      <div className="min-h-screen bg-dark-gradient flex flex-col items-center justify-center text-white">
+        <div className="w-10 h-10 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-[15px] font-medium">Creating your video...</p>
+        <p className="text-[13px] text-white/40 mt-1">This will just take a moment</p>
+      </div>
+    );
+  }
 
   if (!showHome) {
     return (
