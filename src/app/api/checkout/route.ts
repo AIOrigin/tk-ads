@@ -1,5 +1,6 @@
 import Stripe from 'stripe';
 import { NextRequest, NextResponse } from 'next/server';
+import { getBaseUrl } from '@/lib/server/base-url';
 import { getCurrentUserFromAuthHeader } from '@/lib/server/current-user';
 import { sendTikTokEvent, extractTikTokContext } from '@/lib/server/tiktok-events';
 
@@ -18,7 +19,7 @@ export async function POST(req: NextRequest) {
 
     const { templateId, templateName, ttEventId, ttTtclid, ttTtp } = await req.json();
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
+    const appUrl = getBaseUrl(req);
 
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
