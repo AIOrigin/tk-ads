@@ -214,7 +214,7 @@ function DanceSelector({
       </p>
       <div
         ref={scrollRef}
-        className="flex gap-2.5 overflow-x-auto pb-2 px-1.5 mx-[-6px] scrollbar-hide snap-x snap-mandatory"
+        className="flex gap-2.5 overflow-x-auto py-2 -my-2 px-2 -mx-2 scrollbar-hide snap-x snap-mandatory"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         {allTemplates.map((t) => {
