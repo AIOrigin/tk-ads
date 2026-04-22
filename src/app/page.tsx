@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect, useMemo, Suspense } from 'rea
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useCreateStore } from '@/lib/store/create-store';
+import { useAuthStore } from '@/lib/store/auth-store';
 import { PhotoUploader } from '@/components/create/PhotoUploader';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
@@ -593,7 +594,7 @@ function HomeContent() {
     }
 
     // If not logged in, show auth modal instead of redirecting
-    if (!isAuthenticated) {
+    if (!useAuthStore.getState().isAuthenticated) {
       // Save state so we can resume after login
       selectTemplate(selectedDance);
       await savePhotoToDB(effectivePhoto);
