@@ -18,18 +18,12 @@ function formatDuration(seconds: number) {
 }
 
 function TemplateCard({ template, isActive, onTap, onSelect }: TemplateCardProps) {
-  const [isPlaying, setIsPlaying] = useState(false);
-
   function handleClick() {
     if (!isActive) {
       onTap();
       return;
     }
-    if (isPlaying) {
-      onSelect(template);
-    } else {
-      setIsPlaying(true);
-    }
+    onSelect(template);
   }
 
   return (
@@ -41,44 +35,15 @@ function TemplateCard({ template, isActive, onTap, onSelect }: TemplateCardProps
       }`}
       onClick={handleClick}
     >
-      {/* Video content */}
-      {isActive && isPlaying ? (
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
-          className="absolute inset-0 w-full h-full object-cover"
-        >
-          <source src={template.motionVideoUrl} type="video/mp4" />
-        </video>
-      ) : (
-        <video
-          src={template.motionVideoUrl}
-          muted
-          playsInline
-          preload="metadata"
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-      )}
+      <img
+        src={template.thumbnailUrl}
+        alt={template.name}
+        loading="lazy"
+        decoding="async"
+        className="absolute inset-0 w-full h-full object-cover"
+      />
 
-      {/* Play button — show when not playing */}
-      {!(isActive && isPlaying) && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className={`rounded-full flex items-center justify-center transition-all ${
-            isActive
-              ? 'w-12 h-12 glass'
-              : 'w-10 h-10 bg-black/30 backdrop-blur-sm border border-white/10'
-          }`}>
-            <svg className={`text-white ml-0.5 ${isActive ? 'w-4.5 h-4.5' : 'w-3.5 h-3.5'}`} fill="currentColor" viewBox="0 0 24 24">
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          </div>
-        </div>
-      )}
-
-      {/* "Use This" button — active + playing */}
-      {isActive && isPlaying && (
+      {isActive && (
         <div className="absolute inset-0 flex items-end justify-center pb-5 z-10">
           <button
             onClick={(e) => {
@@ -92,12 +57,10 @@ function TemplateCard({ template, isActive, onTap, onSelect }: TemplateCardProps
         </div>
       )}
 
-      {/* Duration badge — top right */}
       <div className="absolute top-2.5 right-2.5 bg-black/50 backdrop-blur-sm text-white text-[10px] font-medium px-2 py-0.5 rounded-md">
         {formatDuration(template.durationSeconds)}
       </div>
 
-      {/* Bottom gradient + info */}
       <div className="absolute bottom-0 left-0 right-0 card-gradient-overlay px-3 pb-3 pt-10 pointer-events-none">
         <p className="text-white font-semibold text-[13px] leading-tight">{template.name}</p>
         <p className="text-white/50 text-[11px] mt-0.5">{template.description}</p>

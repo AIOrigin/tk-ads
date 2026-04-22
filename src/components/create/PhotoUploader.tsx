@@ -98,7 +98,6 @@ export function PhotoUploader({
   }
 
   function handleReupload() {
-    setPreviewUrl(null);
     if (inputRef.current) inputRef.current.value = '';
     inputRef.current?.click();
   }
@@ -128,18 +127,18 @@ export function PhotoUploader({
           <span className="text-[11px] text-white/20">A clear selfie works best</span>
         </button>
       ) : previewUrl ? (
-        <div className="relative aspect-[4/3] rounded-2xl overflow-hidden">
+        <div className="relative aspect-[4/3] rounded-2xl overflow-hidden border border-white/10 bg-black/40">
           {/* Bottom layer: blurred fill */}
           <img
             src={previewUrl}
             alt="Blurred preview background"
-            className="absolute inset-0 w-full h-full object-cover blur-xl scale-110 brightness-75"
+            className="absolute inset-0 w-full h-full object-cover blur-2xl scale-110 brightness-50"
           />
           {/* Top layer: full photo fitted to height */}
           <img
             src={previewUrl}
             alt="Selected upload preview"
-            className="absolute inset-0 w-full h-full object-contain"
+            className="absolute inset-0 w-full h-full object-contain drop-shadow-2xl"
           />
           <button
             type="button"

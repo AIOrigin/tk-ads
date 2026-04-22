@@ -8,6 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { getBaseUrl } from '@/lib/server/base-url';
 import { getCurrentUserFromAuthHeader } from '@/lib/server/current-user';
 import { sendTikTokEvent, extractTikTokContext } from '@/lib/server/tiktok-events';
 
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
     const currentUser = await getCurrentUserFromAuthHeader(authHeader).catch(() => null);
 
     const ttCtx = extractTikTokContext(req);
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+    const appUrl = getBaseUrl(req);
 
     sendTikTokEvent({
       event,

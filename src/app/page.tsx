@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect, useMemo, Suspense } from 'rea
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useCreateStore } from '@/lib/store/create-store';
+import { useAuthStore } from '@/lib/store/auth-store';
 import { PhotoUploader } from '@/components/create/PhotoUploader';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
@@ -26,6 +27,8 @@ import {
   PHOTO_STORE,
   type SavedVideo,
 } from '@/lib/funnel';
+import { BottomSheet } from '@/components/ui/BottomSheet';
+import { AuthModal } from '@/components/auth/AuthModal';
 
 const allTemplates = templates as Template[];
 
@@ -212,7 +215,7 @@ function DanceSelector({
       </p>
       <div
         ref={scrollRef}
-        className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory"
+        className="flex gap-2.5 overflow-x-auto py-3 -my-3 px-3 -mx-3 scrollbar-hide snap-x snap-mandatory"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         {allTemplates.map((t) => {
@@ -229,17 +232,15 @@ function DanceSelector({
               <div
                 className={`aspect-[9/16] rounded-xl overflow-hidden relative ${
                   isActive
-                    ? 'ring-2 ring-purple-500 shadow-[0_0_12px_rgba(168,85,247,0.4)]'
+                    ? 'ring-2 ring-inset ring-purple-500 shadow-[0_0_12px_rgba(168,85,247,0.4)]'
                     : ''
                 }`}
               >
-                <video
-                  src={t.motionVideoUrl}
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  preload="auto"
+                <img
+                  src={t.thumbnailUrl}
+                  alt={t.name}
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-full object-cover"
                 />
                 {/* Duration */}
@@ -304,130 +305,7 @@ function MyVideos({ videos }: { videos: SavedVideo[] }) {
 }
 
 // --- Bottom Sheet ---
-function BottomSheet({
-  isOpen,
-  onClose,
-  children,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  // Prevent pull-to-refresh when sheet is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.classList.add('no-overscroll');
-      document.documentElement.classList.add('no-overscroll');
-    } else {
-      document.body.classList.remove('no-overscroll');
-      document.documentElement.classList.remove('no-overscroll');
-    }
-    return () => {
-      document.body.classList.remove('no-overscroll');
-      document.documentElement.classList.remove('no-overscroll');
-    };
-  }, [isOpen]);
-  const sheetRef = useRef<HTMLDivElement>(null);
-  const backdropRef = useRef<HTMLButtonElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
-  const startY = useRef(0);
-  const currentY = useRef(0);
-  const isDragging = useRef(false);
-  const sheetHeight = useRef(0);
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    // Only drag from handle area or when content is scrolled to top
-    if (contentRef.current && contentRef.current.scrollTop > 0) return;
-    startY.current = e.touches[0].clientY;
-    currentY.current = 0;
-    isDragging.current = true;
-    sheetHeight.current = sheetRef.current?.offsetHeight || 400;
-    if (sheetRef.current) {
-      sheetRef.current.style.transition = 'none';
-    }
-  }, []);
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!isDragging.current) return;
-    const delta = e.touches[0].clientY - startY.current;
-    if (delta > 0) {
-      e.preventDefault();
-    }
-    // Only allow dragging down, with slight rubber-band resistance for upward
-    const clampedDelta = delta < 0 ? delta * 0.1 : delta;
-    currentY.current = clampedDelta;
-
-    if (sheetRef.current) {
-      sheetRef.current.style.transform = `translateY(${Math.max(0, clampedDelta)}px)`;
-    }
-    // Fade backdrop proportionally
-    if (backdropRef.current && sheetHeight.current > 0) {
-      const progress = Math.min(Math.max(0, clampedDelta) / sheetHeight.current, 1);
-      backdropRef.current.style.opacity = String(1 - progress);
-    }
-  }, []);
-
-  const handleTouchEnd = useCallback(() => {
-    if (!isDragging.current) return;
-    isDragging.current = false;
-
-    if (sheetRef.current) {
-      sheetRef.current.style.transition = '';
-    }
-    if (backdropRef.current) {
-      backdropRef.current.style.opacity = '';
-    }
-
-    // Close if dragged past 30% of sheet height or with fast velocity
-    if (currentY.current > sheetHeight.current * 0.3) {
-      if (sheetRef.current) {
-        sheetRef.current.style.transform = '';
-      }
-      onClose();
-    } else {
-      // Snap back
-      if (sheetRef.current) {
-        sheetRef.current.style.transform = 'translateY(0)';
-      }
-    }
-  }, [onClose]);
-
-  return (
-    <>
-      {/* Backdrop */}
-      <button
-        ref={backdropRef}
-        type="button"
-        aria-label="Close sheet"
-        className={`fixed inset-0 bg-black/60 z-40 transition-opacity duration-300 ${
-          isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
-        }`}
-        onClick={onClose}
-      />
-      {/* Sheet */}
-      <div
-        ref={sheetRef}
-        className={`fixed inset-x-0 bottom-0 z-50 transition-transform duration-300 ease-out ${
-          isOpen ? 'translate-y-0' : 'translate-y-full'
-        }`}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
-        <div
-          ref={contentRef}
-          className="bg-[#1a1a1a] rounded-t-3xl max-h-[85vh] overflow-y-auto"
-        >
-          {/* Handle */}
-          <div className="sticky top-0 z-10 flex justify-center pt-3 pb-2 bg-[#1a1a1a] rounded-t-3xl cursor-grab active:cursor-grabbing">
-            <div className="w-9 h-[5px] rounded-full bg-white/30" />
-          </div>
-          <div className="px-5 pb-8 pt-1">{children}</div>
-        </div>
-      </div>
-    </>
-  );
-}
+// Extracted to src/components/ui/BottomSheet.tsx
 
 // --- Main Page ---
 function HomeContent() {
@@ -451,6 +329,8 @@ function HomeContent() {
   const { selectTemplate } = useCreateStore();
 
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  
   const [selectedDance, setSelectedDance] = useState<Template>(allTemplates[0]);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [hasSavedPhoto, setHasSavedPhoto] = useState(false);
@@ -713,13 +593,14 @@ function HomeContent() {
       setHasSavedPhoto(true);
     }
 
-    // If not logged in, redirect to login first
-    if (!isAuthenticated) {
+    // If not logged in, show auth modal instead of redirecting
+    if (!useAuthStore.getState().isAuthenticated) {
       // Save state so we can resume after login
       selectTemplate(selectedDance);
       await savePhotoToDB(effectivePhoto);
       localStorage.setItem(PENDING_TEMPLATE_KEY, JSON.stringify(selectedDance));
-      router.push(buildLoginRedirect('/?resume=1'));
+      
+      setShowAuthModal(true);
       return;
     }
 
@@ -870,17 +751,6 @@ function HomeContent() {
      }
   }
 
-  // Show processing overlay if returning from Stripe
-  if (isProcessing && sessionId) {
-    return (
-      <div className="min-h-screen bg-dark-gradient flex flex-col items-center justify-center text-white">
-        <div className="w-10 h-10 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mb-4" />
-        <p className="text-[15px] font-medium">Creating your video...</p>
-        <p className="text-[13px] text-white/40 mt-1">This will just take a moment</p>
-      </div>
-    );
-  }
-
   const heroMode: HeroMode = (searchParams.get('hero') as HeroMode) || 'mosaic';
 
   const heroElement = useMemo(() => {
@@ -894,62 +764,84 @@ function HomeContent() {
     }
   }, [heroMode]);
 
+  // Show processing overlay if returning from Stripe
+  if (isProcessing && sessionId) {
+    return (
+      <div className="min-h-screen bg-dark-gradient flex flex-col items-center justify-center text-white">
+        <div className="w-10 h-10 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-[15px] font-medium">Creating your video...</p>
+        <p className="text-[13px] text-white/40 mt-1">This will just take a moment</p>
+      </div>
+    );
+  }
+
   if (!showHome) {
     return (
-      <div className="min-h-screen bg-dark-gradient text-white">
-        <div className="px-5 pt-6 pb-8 max-w-lg mx-auto">
-          <h1 className="text-[22px] font-bold leading-[1.15] tracking-tight mb-5">
-            Create Your Own{' '}
-            <span className="bg-gradient-to-r from-purple-400 to-violet-300 bg-clip-text text-transparent">
-              Dance Video
-            </span>
-          </h1>
+      <>
+        <div className="min-h-screen bg-dark-gradient text-white">
+          <div className="px-5 pt-6 pb-8 max-w-lg mx-auto">
+            <h1 className="text-[22px] font-bold leading-[1.15] tracking-tight mb-5">
+              Create Your Own{' '}
+              <span className="bg-gradient-to-r from-purple-400 to-violet-300 bg-clip-text text-transparent">
+                Dance Video
+              </span>
+            </h1>
 
-          <MyVideos videos={myVideos} />
+            <MyVideos videos={myVideos} />
 
-          <DanceSelector
-            selected={selectedDance}
-            onSelect={(t) => {
-              setSelectedDance(t);
-              trackEvent('view_content', { templateId: t.id, templateName: t.name, amount: 1.99 });
-              trackEvent('template_select', { templateId: t.id, templateName: t.name });
-            }}
-          />
-
-          <div className="mb-5">
-            <p className="text-[11px] uppercase tracking-wider text-white/40 font-medium mb-2.5 px-1">
-              Upload your photo
-            </p>
-            {sessionId || paidTemplateRecovered ? (
-              <p className="px-1 mb-2 text-[11px] text-emerald-300">
-                Payment already confirmed. Update your photo and continue without paying again.
-              </p>
-            ) : null}
-            <PhotoUploader
-              onFileSelected={handleFileSelected}
-              selectedFile={photoFile}
-              hasSavedPhoto={hasSavedPhoto}
+            <DanceSelector
+              selected={selectedDance}
+              onSelect={(t) => {
+                setSelectedDance(t);
+                trackEvent('view_content', { templateId: t.id, templateName: t.name, amount: 1.99 });
+                trackEvent('template_select', { templateId: t.id, templateName: t.name });
+              }}
             />
-          </div>
 
-          <Button
-            variant="glow"
-            size="lg"
-            className="w-full"
-            disabled={(!photoFile && !hasSavedPhoto) || isProcessing}
-            isLoading={isProcessing}
-            onClick={handlePay}
-          >
-            {sessionId ? 'Continue Without Paying Again' : 'Create Video'}
-          </Button>
-          <div className="flex items-center justify-center gap-1.5 mt-2 text-[11px] text-white/25">
-            <svg aria-hidden="true" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-            </svg>
-            Secure payment via Stripe
+            <div className="mb-5">
+              <p className="text-[11px] uppercase tracking-wider text-white/40 font-medium mb-2.5 px-1">
+                Upload your photo
+              </p>
+              {sessionId || paidTemplateRecovered ? (
+                <p className="px-1 mb-2 text-[11px] text-emerald-300">
+                  Payment already confirmed. Update your photo and continue without paying again.
+                </p>
+              ) : null}
+              <PhotoUploader
+                onFileSelected={handleFileSelected}
+                selectedFile={photoFile}
+                hasSavedPhoto={hasSavedPhoto}
+              />
+            </div>
+
+            <Button
+              variant="glow"
+              size="lg"
+              className="w-full"
+              disabled={(!photoFile && !hasSavedPhoto) || isProcessing}
+              isLoading={isProcessing}
+              onClick={handlePay}
+            >
+              {sessionId ? 'Continue Without Paying Again' : 'Create Video'}
+            </Button>
+            <div className="flex items-center justify-center gap-1.5 mt-2 text-[11px] text-white/25">
+              <svg aria-hidden="true" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+              </svg>
+              Secure payment via Stripe
+            </div>
           </div>
         </div>
-      </div>
+        
+        <AuthModal 
+          isOpen={showAuthModal} 
+          onClose={() => setShowAuthModal(false)}
+          onSuccess={() => {
+            setShowAuthModal(false);
+            setTimeout(() => handlePay(), 300);
+          }}
+        />
+      </>
     );
   }
 
@@ -1047,6 +939,17 @@ function HomeContent() {
           Secure payment via Stripe
         </div>
       </BottomSheet>
+
+      <AuthModal 
+        isOpen={showAuthModal} 
+        onClose={() => setShowAuthModal(false)}
+        onSuccess={() => {
+          setShowAuthModal(false);
+          // When login finishes successfully, trigger handlePay automatically
+          // to continue the generation process seamlessly.
+          setTimeout(() => handlePay(), 300);
+        }}
+      />
     </div>
   );
 }

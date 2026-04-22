@@ -2,9 +2,9 @@ export interface Template {
   id: string;
   name: string;
   description: string;
-  /** Dance motion video URL (preset from CDN) */
+  /** Motion-reference video URL sent to the backend image-to-video service (clean source footage). */
   motionVideoUrl: string;
-  /** Thumbnail image (poster frame) */
+  /** Animated WebP preview shown in the selector grid (cute animal sample of the motion). */
   thumbnailUrl: string;
   /** Quality mode: 720p or 1080p */
   mode: '720p' | '1080p';
