@@ -231,7 +231,7 @@ function DanceSelector({
               <div
                 className={`aspect-[9/16] rounded-xl overflow-hidden relative ${
                   isActive
-                    ? 'ring-2 ring-purple-500 ring-offset-2 ring-offset-[#1a1a1a] shadow-[0_0_12px_rgba(168,85,247,0.4)]'
+                    ? 'ring-2 ring-inset ring-purple-500 shadow-[0_0_12px_rgba(168,85,247,0.4)]'
                     : ''
                 }`}
               >
