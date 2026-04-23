@@ -231,14 +231,27 @@ function HomeContent() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [paidTemplateRecovered, setPaidTemplateRecovered] = useState(false);
   const [myVideos, setMyVideos] = useState<SavedVideo[]>([]);
+  const viewContentTrackedRef = useRef(false);
 
-  const trackTemplateEngagement = useCallback((template: Template, source: string) => {
-    trackEvent('view_content', {
-      templateId: template.id,
-      templateName: template.name,
-      amount: 1.99,
-      source,
-    });
+  useEffect(() => {
+    if (viewContentTrackedRef.current || sessionId || canceled || shouldResume) return;
+
+    const timer = window.setTimeout(() => {
+      if (viewContentTrackedRef.current) return;
+
+      viewContentTrackedRef.current = true;
+      trackEvent('view_content', {
+        templateId: selectedDance.id,
+        templateName: selectedDance.name,
+        amount: 1.99,
+        source: 'landing_visible',
+      });
+    }, 1000);
+
+    return () => window.clearTimeout(timer);
+  }, [canceled, selectedDance.id, selectedDance.name, sessionId, shouldResume]);
+
+  const trackTemplateSelect = useCallback((template: Template, source: string) => {
     trackEvent('template_select', {
       templateId: template.id,
       templateName: template.name,
@@ -249,8 +262,8 @@ function HomeContent() {
   const handleTemplateSelect = useCallback((template: Template) => {
     if (template.id === selectedDance.id) return;
     setSelectedDance(template);
-    trackTemplateEngagement(template, 'manual');
-  }, [selectedDance.id, trackTemplateEngagement]);
+    trackTemplateSelect(template, 'manual');
+  }, [selectedDance.id, trackTemplateSelect]);
 
   // Load saved videos on mount
   useEffect(() => {
