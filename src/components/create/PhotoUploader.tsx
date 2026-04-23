@@ -9,7 +9,14 @@ const MAX_DIMENSION = 1280;
 const COMPRESS_QUALITY = 0.85;
 const MAX_UPLOAD_BYTES = 3.5 * 1024 * 1024; // Keep under Vercel's 4.5MB limit
 const PASSTHROUGH_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const HEIC_MIME_TYPES = new Set([
+  'image/heic',
+  'image/heif',
+  'image/heic-sequence',
+  'image/heif-sequence',
+]);
 const FALLBACK_IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif', 'avif']);
+const HEIC_EXTENSIONS = new Set(['heic', 'heif']);
 
 function getFileExtension(fileName: string): string {
   return fileName.split('.').pop()?.toLowerCase() ?? '';
@@ -22,10 +29,7 @@ function isSupportedPhotoFile(file: File): boolean {
   if (
     mimeType === 'image/jpg' ||
     mimeType === 'image/pjpeg' ||
-    mimeType === 'image/heic' ||
-    mimeType === 'image/heif' ||
-    mimeType === 'image/heic-sequence' ||
-    mimeType === 'image/heif-sequence' ||
+    HEIC_MIME_TYPES.has(mimeType) ||
     mimeType === 'image/avif' ||
     mimeType === 'image/avif-sequence'
   ) {
@@ -37,6 +41,35 @@ function isSupportedPhotoFile(file: File): boolean {
   }
 
   return false;
+}
+
+function isHeicFile(file: File): boolean {
+  const mimeType = file.type.toLowerCase();
+  return HEIC_MIME_TYPES.has(mimeType) || HEIC_EXTENSIONS.has(getFileExtension(file.name));
+}
+
+async function convertHeicToJpeg(file: File): Promise<File> {
+  const { default: heic2any } = await import('heic2any');
+  const converted = await heic2any({
+    blob: file,
+    toType: 'image/jpeg',
+    quality: COMPRESS_QUALITY,
+  });
+  const convertedBlob = Array.isArray(converted) ? converted[0] : converted;
+  if (!(convertedBlob instanceof Blob)) {
+    throw new Error('HEIC conversion failed');
+  }
+
+  const outputName = /\.\w+$/.test(file.name) ? file.name.replace(/\.\w+$/, '.jpg') : `${file.name}.jpg`;
+  return new File([convertedBlob], outputName, { type: 'image/jpeg' });
+}
+
+async function normalizeUploadFile(file: File): Promise<File> {
+  if (isHeicFile(file)) {
+    return convertHeicToJpeg(file);
+  }
+
+  return file;
 }
 
 function compressImage(file: File): Promise<File> {
@@ -120,7 +153,7 @@ export function PhotoUploader({
         reason: 'unsupported_type',
       });
       e.target.value = '';
-      toast.error('Please upload a JPG, PNG, or WebP image');
+      toast.error('Please upload a JPG, PNG, WebP, or HEIC image');
       return;
     }
 
@@ -136,7 +169,8 @@ export function PhotoUploader({
     }
 
     try {
-      const compressed = await compressImage(file);
+      const normalized = await normalizeUploadFile(file);
+      const compressed = await compressImage(normalized);
       onFileSelected(compressed);
     } catch {
       trackEvent('photo_upload_rejected', {
@@ -145,7 +179,7 @@ export function PhotoUploader({
         reason: 'failed_to_process',
       });
       e.target.value = '';
-      toast.error('Failed to process image. Please try another photo.');
+      toast.error('Failed to process image. Please try a JPG, PNG, WebP, or HEIC photo.');
     }
   }
 
