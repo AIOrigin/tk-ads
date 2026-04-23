@@ -1,12 +1,43 @@
 'use client';
 
 import { useEffect, useMemo, useRef } from 'react';
-import { PHOTO_ACCEPTED_TYPES, PHOTO_MAX_SIZE_MB } from '@/lib/constants';
+import { trackEvent } from '@/lib/analytics';
+import { PHOTO_MAX_SIZE_MB } from '@/lib/constants';
 import { toast } from '@/components/ui/Toast';
 
 const MAX_DIMENSION = 1280;
 const COMPRESS_QUALITY = 0.85;
 const MAX_UPLOAD_BYTES = 3.5 * 1024 * 1024; // Keep under Vercel's 4.5MB limit
+const PASSTHROUGH_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const FALLBACK_IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif', 'avif']);
+
+function getFileExtension(fileName: string): string {
+  return fileName.split('.').pop()?.toLowerCase() ?? '';
+}
+
+function isSupportedPhotoFile(file: File): boolean {
+  const mimeType = file.type.toLowerCase();
+  if (PASSTHROUGH_MIME_TYPES.has(mimeType)) return true;
+
+  if (
+    mimeType === 'image/jpg' ||
+    mimeType === 'image/pjpeg' ||
+    mimeType === 'image/heic' ||
+    mimeType === 'image/heif' ||
+    mimeType === 'image/heic-sequence' ||
+    mimeType === 'image/heif-sequence' ||
+    mimeType === 'image/avif' ||
+    mimeType === 'image/avif-sequence'
+  ) {
+    return true;
+  }
+
+  if (!mimeType) {
+    return FALLBACK_IMAGE_EXTENSIONS.has(getFileExtension(file.name));
+  }
+
+  return false;
+}
 
 function compressImage(file: File): Promise<File> {
   return new Promise((resolve, reject) => {
@@ -16,7 +47,13 @@ function compressImage(file: File): Promise<File> {
       URL.revokeObjectURL(url);
 
       let { width, height } = img;
-      if (width <= MAX_DIMENSION && height <= MAX_DIMENSION && file.size <= MAX_UPLOAD_BYTES) {
+      const keepOriginalFile =
+        PASSTHROUGH_MIME_TYPES.has(file.type.toLowerCase()) &&
+        width <= MAX_DIMENSION &&
+        height <= MAX_DIMENSION &&
+        file.size <= MAX_UPLOAD_BYTES;
+
+      if (keepOriginalFile) {
         resolve(file);
         return;
       }
@@ -37,7 +74,8 @@ function compressImage(file: File): Promise<File> {
       canvas.toBlob(
         (blob) => {
           if (!blob) { reject(new Error('Compression failed')); return; }
-          resolve(new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' }));
+          const outputName = /\.\w+$/.test(file.name) ? file.name.replace(/\.\w+$/, '.jpg') : `${file.name}.jpg`;
+          resolve(new File([blob], outputName, { type: 'image/jpeg' }));
         },
         'image/jpeg',
         COMPRESS_QUALITY,
@@ -75,12 +113,24 @@ export function PhotoUploader({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!PHOTO_ACCEPTED_TYPES.includes(file.type)) {
+    if (!isSupportedPhotoFile(file)) {
+      trackEvent('photo_upload_rejected', {
+        mime: file.type || 'unknown',
+        sizeBytes: file.size,
+        reason: 'unsupported_type',
+      });
+      e.target.value = '';
       toast.error('Please upload a JPG, PNG, or WebP image');
       return;
     }
 
     if (file.size > PHOTO_MAX_SIZE_MB * 1024 * 1024) {
+      trackEvent('photo_upload_rejected', {
+        mime: file.type || 'unknown',
+        sizeBytes: file.size,
+        reason: 'too_large',
+      });
+      e.target.value = '';
       toast.error(`Photo must be under ${PHOTO_MAX_SIZE_MB}MB`);
       return;
     }
@@ -89,6 +139,12 @@ export function PhotoUploader({
       const compressed = await compressImage(file);
       onFileSelected(compressed);
     } catch {
+      trackEvent('photo_upload_rejected', {
+        mime: file.type || 'unknown',
+        sizeBytes: file.size,
+        reason: 'failed_to_process',
+      });
+      e.target.value = '';
       toast.error('Failed to process image. Please try another photo.');
     }
   }
@@ -103,7 +159,7 @@ export function PhotoUploader({
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/*"
         onChange={handleChange}
         className="hidden"
       />
