@@ -178,7 +178,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
               </div>
             )}
             <div className="text-center">
-              <p className="text-[11px] text-white/40 mb-1.5">Didn't get the code?</p>
+              <p className="text-[11px] text-white/40 mb-1.5">Didn&apos;t get the code?</p>
               <Button
                 type="button"
                 variant="ghost"

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect, useMemo, Suspense } from 'react';
+import { useState, useCallback, useRef, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useCreateStore } from '@/lib/store/create-store';
@@ -11,7 +11,6 @@ import { toast } from '@/components/ui/Toast';
 import { getToken } from '@/lib/api/client';
 import { getCredits, getTotalCredits } from '@/lib/api/user-api';
 import { trackEvent, generateEventId, getTikTokClickId, getTikTokTtp } from '@/lib/analytics';
-import { PRICE_DISPLAY } from '@/lib/constants';
 import templates from '@/data/templates.json';
 import type { Template } from '@/types/template';
 import {
@@ -27,7 +26,6 @@ import {
   PHOTO_STORE,
   type SavedVideo,
 } from '@/lib/funnel';
-import { BottomSheet } from '@/components/ui/BottomSheet';
 import { AuthModal } from '@/components/auth/AuthModal';
 
 const allTemplates = templates as Template[];
@@ -78,124 +76,24 @@ async function clearPhotoDB(): Promise<void> {
   });
 }
 
-// --- Hero image data ---
-const HERO_IMAGES = [
-  '/heroes/penguin.webp',
-  '/heroes/penguin2.webp',
-  '/heroes/seadog.webp',
-  '/heroes/seadog2.webp',
-  '/heroes/seadog3.webp',
-  '/heroes/seadog4.webp',
-  '/heroes/seadog5.webp',
-  '/heroes/dinosaur.webp',
-  '/heroes/dinosaur2.webp',
-  '/heroes/dinosaur3.webp',
-  '/heroes/dinosaur4.webp',
-  '/heroes/squirrel.webp',
-];
+const PAYMENT_EVENT_IDS_KEY = 'dance_payment_event_ids';
 
-type HeroMode = 'video' | 'mosaic' | 'carousel';
-
-// --- Tilted mosaic grid of character images (static, randomized per load) ---
-function HeroMosaic() {
-  const [columns, setColumns] = useState([
-    HERO_IMAGES.slice(0, 4),
-    HERO_IMAGES.slice(4, 8),
-    HERO_IMAGES.slice(8, 12),
-  ]);
-
-  useEffect(() => {
-    // Shuffle on client only to avoid hydration mismatch
-    const shuffled = [...HERO_IMAGES];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    setColumns([
-      shuffled.slice(0, 4),
-      shuffled.slice(4, 8),
-      shuffled.slice(8, 12),
-    ]);
-  }, []);
-
-  const offsets = ['0%', '-25%', '-10%'];
-
-  return (
-    <div className="fixed inset-0 overflow-hidden">
-      <div
-        className="absolute inset-0 flex gap-2.5 justify-center origin-center"
-        style={{ transform: 'rotate(-12deg) scale(1.45)', top: '-15%' }}
-      >
-        {columns.map((col, colIdx) => (
-          <div
-            key={colIdx}
-            className="flex flex-col gap-2.5"
-            style={{ width: '34%', marginTop: offsets[colIdx] }}
-          >
-            {col.map((src, imgIdx) => (
-              <img
-                key={imgIdx}
-                src={src}
-                alt=""
-                className="w-full aspect-[9/16] object-cover rounded-2xl"
-              />
-            ))}
-          </div>
-        ))}
-      </div>
-      {/* Gradient overlays — slightly stronger for readability over colorful images */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/20 to-transparent" />
-      <div className="absolute inset-x-0 bottom-0 h-[55%] bg-gradient-to-t from-black via-black/85 to-transparent" />
-    </div>
-  );
+function getPaymentEventIds(): Record<string, string> {
+  try {
+    return JSON.parse(localStorage.getItem(PAYMENT_EVENT_IDS_KEY) || '{}');
+  } catch {
+    return {};
+  }
 }
 
-// --- Option 4: Image carousel with crossfade ---
-function HeroCarousel() {
-  const [activeIndex, setActiveIndex] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveIndex((prev) => (prev + 1) % HERO_IMAGES.length);
-    }, 4000);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="fixed inset-0">
-      {HERO_IMAGES.map((src, i) => (
-        <img
-          key={src}
-          src={src}
-          alt=""
-          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out ${
-            i === activeIndex ? 'opacity-100' : 'opacity-0'
-          }`}
-        />
-      ))}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-transparent" />
-      <div className="absolute inset-x-0 bottom-0 h-[50%] bg-gradient-to-t from-black via-black/80 to-transparent" />
-    </div>
-  );
+function getPaymentEventId(sessionId: string): string | null {
+  return getPaymentEventIds()[sessionId] ?? null;
 }
 
-// --- Original video hero ---
-function HeroVideo() {
-  return (
-    <div className="fixed inset-0">
-      <video
-        autoPlay
-        muted
-        loop
-        playsInline
-        suppressHydrationWarning
-        src="https://assets.tool.elser.ai/community/ai-pet-dance/pets/1.mp4"
-        className="w-full h-full object-cover"
-      />
-      <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-transparent" />
-      <div className="absolute inset-x-0 bottom-0 h-[50%] bg-gradient-to-t from-black via-black/80 to-transparent" />
-    </div>
-  );
+function savePaymentEventId(sessionId: string, eventId: string): void {
+  const eventIds = getPaymentEventIds();
+  eventIds[sessionId] = eventId;
+  localStorage.setItem(PAYMENT_EVENT_IDS_KEY, JSON.stringify(eventIds));
 }
 
 // --- Dance Selector (horizontal scroll) ---
@@ -304,9 +202,6 @@ function MyVideos({ videos }: { videos: SavedVideo[] }) {
   );
 }
 
-// --- Bottom Sheet ---
-// Extracted to src/components/ui/BottomSheet.tsx
-
 // --- Main Page ---
 function HomeContent() {
   const router = useRouter();
@@ -314,7 +209,7 @@ function HomeContent() {
   const sessionId = searchParams.get('session_id');
   const canceled = searchParams.get('canceled');
   const shouldResume = searchParams.get('resume') === '1';
-  const showHome = searchParams.get('home') === '1';
+  const trackedPaymentCancelRef = useRef(false);
 
   // If there's a pending task, resume to its progress page
   useEffect(() => {
@@ -325,10 +220,9 @@ function HomeContent() {
     }
   }, [router, sessionId, canceled, shouldResume]);
 
-  const { isAuthenticated } = useAuth();
+  useAuth();
   const { selectTemplate } = useCreateStore();
 
-  const [sheetOpen, setSheetOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   
   const [selectedDance, setSelectedDance] = useState<Template>(allTemplates[0]);
@@ -337,6 +231,26 @@ function HomeContent() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [paidTemplateRecovered, setPaidTemplateRecovered] = useState(false);
   const [myVideos, setMyVideos] = useState<SavedVideo[]>([]);
+
+  const trackTemplateEngagement = useCallback((template: Template, source: string) => {
+    trackEvent('view_content', {
+      templateId: template.id,
+      templateName: template.name,
+      amount: 1.99,
+      source,
+    });
+    trackEvent('template_select', {
+      templateId: template.id,
+      templateName: template.name,
+      source,
+    });
+  }, []);
+
+  const handleTemplateSelect = useCallback((template: Template) => {
+    if (template.id === selectedDance.id) return;
+    setSelectedDance(template);
+    trackTemplateEngagement(template, 'manual');
+  }, [selectedDance.id, trackTemplateEngagement]);
 
   // Load saved videos on mount
   useEffect(() => {
@@ -412,7 +326,6 @@ function HomeContent() {
         setHasSavedPhoto(true);
       }
 
-      setSheetOpen(true);
       return true;
     } catch {
       return false;
@@ -445,16 +358,29 @@ function HomeContent() {
   // Handle Stripe cancel
   useEffect(() => {
     if (canceled) {
+      if (!trackedPaymentCancelRef.current) {
+        trackedPaymentCancelRef.current = true;
+        const pendingRaw = localStorage.getItem(PENDING_TEMPLATE_KEY);
+        let pendingTemplate: Template | null = null;
+        try {
+          pendingTemplate = pendingRaw ? JSON.parse(pendingRaw) as Template : null;
+        } catch { /* ignore */ }
+
+        trackEvent('payment_cancel', {
+          templateId: pendingTemplate?.id || selectedDance.id,
+          templateName: pendingTemplate?.name || selectedDance.name,
+        });
+      }
+
       void restorePendingState().then((restored) => {
         toast.info(
           restored
             ? 'Payment was not completed. Your dance and photo are still saved.'
             : 'Payment was not completed. Please choose your dance and upload a photo again.'
         );
-        setSheetOpen(true);
       });
     }
-  }, [canceled, restorePendingState]);
+  }, [canceled, restorePendingState, selectedDance.id, selectedDance.name]);
 
   // Handle Stripe success redirect
   useEffect(() => {
@@ -467,30 +393,40 @@ function HomeContent() {
         const savedRaw = localStorage.getItem(PENDING_TEMPLATE_KEY);
         let savedTemplate: Template | null = null;
         try { savedTemplate = savedRaw ? JSON.parse(savedRaw) as Template : null; } catch { /* ignore */ }
-        const purchaseEventId = generateEventId();
-        trackEvent('payment_complete', {
-          amount: 1.99,
-          sessionId: sessionId!,
-          templateId: savedTemplate?.id || '',
-          templateName: savedTemplate?.name || '',
-          eventId: purchaseEventId,
-        });
 
         const paidSessionInfo = await fetchPaidSessionInfo();
+        if (!paidSessionInfo?.paid) {
+          toast.error('Payment is not completed yet. Please finish checkout before continuing.');
+          setIsProcessing(false);
+          return;
+        }
+
+        const paidTemplate = savedTemplate ?? resolveTemplateById(paidSessionInfo.templateId);
+        const existingPurchaseEventId = getPaymentEventId(sessionId!);
+        const purchaseEventId = existingPurchaseEventId || generateEventId();
+        if (!existingPurchaseEventId) {
+          trackEvent('payment_complete', {
+            amount: 1.99,
+            sessionId: sessionId!,
+            templateId: paidTemplate?.id || paidSessionInfo.templateId || '',
+            templateName: paidTemplate?.name || '',
+            eventId: purchaseEventId,
+          });
+          savePaymentEventId(sessionId!, purchaseEventId);
+        }
+
         if (paidSessionInfo?.taskId) {
           localStorage.setItem(PENDING_SESSION_ID_KEY, sessionId!);
           router.replace(`/create/${paidSessionInfo.taskId}`);
           return;
         }
 
-        const pendingRaw = localStorage.getItem(PENDING_TEMPLATE_KEY);
-        const storedTemplate = pendingRaw ? (JSON.parse(pendingRaw) as Template) : null;
-        const template = storedTemplate ?? resolveTemplateById(paidSessionInfo?.templateId);
+        const storedTemplate = savedTemplate;
+        const template = storedTemplate ?? paidTemplate;
 
         if (!template) {
           toast.error('We found your payment, but could not recover your draft. Please contact support before retrying payment.');
           setIsProcessing(false);
-          setSheetOpen(true);
           return;
         }
 
@@ -510,7 +446,6 @@ function HomeContent() {
           toast.error('Payment confirmed. Please re-upload your photo to finish your video without paying again.');
           setIsProcessing(false);
           setHasSavedPhoto(false);
-          setSheetOpen(true);
           return;
         }
 
@@ -552,7 +487,6 @@ function HomeContent() {
           }
 
           setIsProcessing(false);
-          setSheetOpen(true);
           return;
         }
 
@@ -569,7 +503,6 @@ function HomeContent() {
       } catch {
         toast.error('Something went wrong. Please try again.');
         setIsProcessing(false);
-        setSheetOpen(true);
       }
     }
 
@@ -579,8 +512,13 @@ function HomeContent() {
   const handleFileSelected = useCallback((file: File) => {
     setPhotoFile(file);
     setHasSavedPhoto(true);
-    trackEvent('photo_upload', { sizeBytes: file.size, mime: file.type });
-  }, []);
+    trackEvent('photo_upload', {
+      templateId: selectedDance.id,
+      templateName: selectedDance.name,
+      sizeBytes: file.size,
+      mime: file.type,
+    });
+  }, [selectedDance.id, selectedDance.name]);
 
   async function handlePay() {
     if (!selectedDance) return;
@@ -668,7 +606,7 @@ function HomeContent() {
       });
 
       if (sessionId) {
-        const resumeEventId = generateEventId();
+        const resumeEventId = getPaymentEventId(sessionId) || generateEventId();
         const formData = new FormData();
         formData.append('session_id', sessionId);
         formData.append('motion_video_url', selectedDance.motionVideoUrl);
@@ -751,19 +689,6 @@ function HomeContent() {
      }
   }
 
-  const heroMode: HeroMode = (searchParams.get('hero') as HeroMode) || 'mosaic';
-
-  const heroElement = useMemo(() => {
-    switch (heroMode) {
-      case 'mosaic':
-        return <HeroMosaic />;
-      case 'carousel':
-        return <HeroCarousel />;
-      default:
-        return <HeroVideo />;
-    }
-  }, [heroMode]);
-
   // Show processing overlay if returning from Stripe
   if (isProcessing && sessionId) {
     return (
@@ -775,170 +700,58 @@ function HomeContent() {
     );
   }
 
-  if (!showHome) {
-    return (
-      <>
-        <div className="min-h-screen bg-dark-gradient text-white">
-          <div className="px-5 pt-6 pb-8 max-w-lg mx-auto">
-            <h1 className="text-[22px] font-bold leading-[1.15] tracking-tight mb-5">
-              Create Your Own{' '}
-              <span className="bg-gradient-to-r from-purple-400 to-violet-300 bg-clip-text text-transparent">
-                Dance Video
-              </span>
-            </h1>
-
-            <MyVideos videos={myVideos} />
-
-            <DanceSelector
-              selected={selectedDance}
-              onSelect={(t) => {
-                setSelectedDance(t);
-                trackEvent('view_content', { templateId: t.id, templateName: t.name, amount: 1.99 });
-                trackEvent('template_select', { templateId: t.id, templateName: t.name });
-              }}
-            />
-
-            <div className="mb-5">
-              <p className="text-[11px] uppercase tracking-wider text-white/40 font-medium mb-2.5 px-1">
-                Upload your photo
-              </p>
-              {sessionId || paidTemplateRecovered ? (
-                <p className="px-1 mb-2 text-[11px] text-emerald-300">
-                  Payment already confirmed. Update your photo and continue without paying again.
-                </p>
-              ) : null}
-              <PhotoUploader
-                onFileSelected={handleFileSelected}
-                selectedFile={photoFile}
-                hasSavedPhoto={hasSavedPhoto}
-              />
-            </div>
-
-            <Button
-              variant="glow"
-              size="lg"
-              className="w-full"
-              disabled={(!photoFile && !hasSavedPhoto) || isProcessing}
-              isLoading={isProcessing}
-              onClick={handlePay}
-            >
-              {sessionId ? 'Continue Without Paying Again' : 'Create Video'}
-            </Button>
-            <div className="flex items-center justify-center gap-1.5 mt-2 text-[11px] text-white/25">
-              <svg aria-hidden="true" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-              </svg>
-              Secure payment via Stripe
-            </div>
-          </div>
-        </div>
-        
-        <AuthModal 
-          isOpen={showAuthModal} 
-          onClose={() => setShowAuthModal(false)}
-          onSuccess={() => {
-            setShowAuthModal(false);
-            setTimeout(() => handlePay(), 300);
-          }}
-        />
-      </>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-dark-gradient text-white">
-      {/* Full-screen hero */}
-      {heroElement}
-
-      {/* Content overlay */}
-      <div className="relative z-10 h-dvh flex flex-col justify-end px-6 pb-10">
-        {/* Bottom content — increase mb to push higher */}
-        <div className="mb-10">
-          <h1 className="text-[28px] font-bold leading-[1.15] tracking-tight mb-2">
-            Create Your Own<br />
+    <>
+      <div className="min-h-screen bg-dark-gradient text-white">
+        <div className="px-5 pt-6 pb-8 max-w-lg mx-auto">
+          <h1 className="text-[22px] font-bold leading-[1.15] tracking-tight mb-5">
+            Create Your Own{' '}
             <span className="bg-gradient-to-r from-purple-400 to-violet-300 bg-clip-text text-transparent">
               Dance Video
             </span>
           </h1>
-          {/* My Videos */}
+
           <MyVideos videos={myVideos} />
 
-          <div className="flex justify-center">
-            <Button
-              variant="glow"
-              className="w-[70%] h-16 text-[28px] font-bold rounded-2xl animate-glow-pulse !shadow-none"
-              onClick={() => {
-                trackEvent('start_create_flow', { cta: 'create_yours' });
-                trackEvent('template_select', {
-                  templateId: selectedDance.id,
-                  templateName: selectedDance.name,
-                  source: 'default',
-                });
-                setSheetOpen(true);
-              }}
-            >
-              Try Now
-            </Button>
+          <DanceSelector
+            selected={selectedDance}
+            onSelect={handleTemplateSelect}
+          />
+
+          <div className="mb-5">
+            <p className="text-[11px] uppercase tracking-wider text-white/40 font-medium mb-2.5 px-1">
+              Upload your photo
+            </p>
+            {sessionId || paidTemplateRecovered ? (
+              <p className="px-1 mb-2 text-[11px] text-emerald-300">
+                Payment already confirmed. Update your photo and continue without paying again.
+              </p>
+            ) : null}
+            <PhotoUploader
+              onFileSelected={handleFileSelected}
+              selectedFile={photoFile}
+              hasSavedPhoto={hasSavedPhoto}
+            />
           </div>
 
-          {/* Trust line */}
-          <div className="flex items-center justify-center gap-4 mt-4 text-[11px] text-white/25">
-            <span>Sign up to get 100 points</span>
+          <Button
+            variant="glow"
+            size="lg"
+            className="w-full"
+            disabled={(!photoFile && !hasSavedPhoto) || isProcessing}
+            isLoading={isProcessing}
+            onClick={handlePay}
+          >
+            {sessionId ? 'Continue Without Paying Again' : 'Create Video'}
+          </Button>
+          <div className="flex items-center justify-center gap-1.5 mt-2 text-[11px] text-white/25">
+            <svg aria-hidden="true" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+            </svg>
+            Secure payment via Stripe
           </div>
         </div>
       </div>
-
-      {/* Bottom Sheet: Select dance + Upload photo + Pay */}
-      <BottomSheet isOpen={sheetOpen} onClose={() => setSheetOpen(false)}>
-        {/* Dance selector */}
-        <DanceSelector
-          selected={selectedDance}
-          onSelect={(t) => {
-            setSelectedDance(t);
-            // view_content is the ad-pixel ViewContent event (TikTok/Meta/GA).
-            // template_select is the PostHog-only funnel step — both fire together
-            // so the product funnel has a distinct signal from the ad conversion event.
-            trackEvent('view_content', { templateId: t.id, templateName: t.name, amount: 1.99 });
-            trackEvent('template_select', { templateId: t.id, templateName: t.name });
-          }}
-        />
-
-        {/* Photo upload */}
-        <div className="mb-5">
-          <p className="text-[11px] uppercase tracking-wider text-white/40 font-medium mb-2.5 px-1">
-            Upload your photo
-          </p>
-          {sessionId || paidTemplateRecovered ? (
-            <p className="px-1 mb-2 text-[11px] text-emerald-300">
-              Payment already confirmed. Update your photo and continue without paying again.
-            </p>
-          ) : null}
-          <PhotoUploader
-            onFileSelected={handleFileSelected}
-            selectedFile={photoFile}
-            hasSavedPhoto={hasSavedPhoto}
-          />
-          
-        </div>
-
-        {/* Pay */}
-        <Button
-          variant="glow"
-          size="lg"
-          className="w-full"
-          disabled={(!photoFile && !hasSavedPhoto) || isProcessing}
-          isLoading={isProcessing}
-          onClick={handlePay}
-        >
-          {sessionId ? 'Continue Without Paying Again' : 'Create Video'}
-        </Button>
-        <div className="flex items-center justify-center gap-1.5 mt-2 text-[11px] text-white/25">
-          <svg aria-hidden="true" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-          </svg>
-          Secure payment via Stripe
-        </div>
-      </BottomSheet>
 
       <AuthModal 
         isOpen={showAuthModal} 
@@ -950,7 +763,7 @@ function HomeContent() {
           setTimeout(() => handlePay(), 300);
         }}
       />
-    </div>
+    </>
   );
 }
 
