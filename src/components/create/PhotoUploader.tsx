@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { PHOTO_ACCEPTED_TYPES, PHOTO_MAX_SIZE_MB } from '@/lib/constants';
 import { toast } from '@/components/ui/Toast';
 
@@ -60,19 +60,16 @@ export function PhotoUploader({
   hasSavedPhoto = false,
 }: PhotoUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const previewUrl = useMemo(
+    () => selectedFile ? URL.createObjectURL(selectedFile) : null,
+    [selectedFile],
+  );
 
   useEffect(() => {
-    if (!selectedFile) {
-      setPreviewUrl(null);
-      return;
-    }
+    if (!previewUrl) return;
 
-    const nextPreviewUrl = URL.createObjectURL(selectedFile);
-    setPreviewUrl(nextPreviewUrl);
-
-    return () => URL.revokeObjectURL(nextPreviewUrl);
-  }, [selectedFile]);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
 
   async function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -90,7 +87,6 @@ export function PhotoUploader({
 
     try {
       const compressed = await compressImage(file);
-      setPreviewUrl(URL.createObjectURL(compressed));
       onFileSelected(compressed);
     } catch {
       toast.error('Failed to process image. Please try another photo.');
