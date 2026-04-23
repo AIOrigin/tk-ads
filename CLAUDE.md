@@ -27,6 +27,10 @@ No test runner is configured.
 - **Ky** as HTTP client (`src/lib/api/client.ts`)
 - **Stripe** (server-side SDK) for payments
 
+## Project Services
+
+- PostHog project: `tiktok-ad` (project ID `330834`)
+
 ## Architecture
 
 ### Page Flow
