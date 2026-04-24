@@ -4,13 +4,15 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, Suspense } from 'react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { EmailLoginForm } from '@/components/auth/EmailLoginForm';
-import { sanitizeRedirect } from '@/lib/funnel';
+import { getAuthBackTarget, sanitizeRedirect } from '@/lib/funnel';
 
 function LoginContent() {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = sanitizeRedirect(searchParams.get('redirect'));
+  const email = searchParams.get('email') || '';
+  const backTarget = getAuthBackTarget(redirect);
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
@@ -24,7 +26,7 @@ function LoginContent() {
     <div className="min-h-screen flex flex-col px-6 pt-14 bg-black">
       <button
         type="button"
-        onClick={() => router.back()}
+        onClick={() => router.replace(backTarget)}
         className="mb-10 text-white/50 text-sm self-start flex items-center gap-1 hover:text-white/80 transition-colors"
       >
         <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -44,7 +46,7 @@ function LoginContent() {
       </div>
 
       <div className="space-y-4">
-        <EmailLoginForm redirect={redirect} />
+        <EmailLoginForm redirect={redirect} initialEmail={email} />
       </div>
 
       <p className="mt-auto pb-8 text-center text-[11px] text-white/30 leading-relaxed">

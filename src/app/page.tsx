@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useCreateStore } from '@/lib/store/create-store';
 import { useAuthStore } from '@/lib/store/auth-store';
-import { PhotoUploader } from '@/components/create/PhotoUploader';
+import { PhotoUploader, type PhotoUploaderHandle } from '@/components/create/PhotoUploader';
 import { PresetCharacterSelector } from '@/components/create/PresetCharacterSelector';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
@@ -432,6 +432,7 @@ function HomeContent() {
   const [paidTemplateRecovered, setPaidTemplateRecovered] = useState(false);
   const [myVideos, setMyVideos] = useState<SavedVideo[]>([]);
   const viewContentTrackedRef = useRef(false);
+  const hiddenPhotoUploaderRef = useRef<PhotoUploaderHandle>(null);
 
   const selectedCharacter = getPresetCharacterById(selectedCharacterId) ?? defaultPresetCharacter;
   const visibleCharacters = hasUrlCharacterVariant && urlCharacter ? [urlCharacter] : presetCharacters;
@@ -1084,11 +1085,18 @@ function HomeContent() {
 
             {hasUrlCharacterVariant ? (
               inputMode === 'preset' ? (
-                <SelectedCharacterSummary
-                  character={selectedCharacter}
-                  actionLabel="Change another photo"
-                  onAction={() => handleInputModeSelect('upload')}
-                />
+                <>
+                  <PhotoUploader
+                    ref={hiddenPhotoUploaderRef}
+                    onFileSelected={handleFileSelected}
+                    hideUi
+                  />
+                  <SelectedCharacterSummary
+                    character={selectedCharacter}
+                    actionLabel="Change another photo"
+                    onAction={() => hiddenPhotoUploaderRef.current?.openPicker()}
+                  />
+                </>
               ) : (
                 <div>
                   <div className="rounded-2xl ring-2 ring-purple-500/40 transition-all">

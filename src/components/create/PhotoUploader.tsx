@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import { trackEvent } from '@/lib/analytics';
 import { PHOTO_MAX_SIZE_MB } from '@/lib/constants';
 import { toast } from '@/components/ui/Toast';
@@ -123,13 +123,19 @@ interface PhotoUploaderProps {
   onFileSelected: (file: File) => void;
   selectedFile?: File | null;
   hasSavedPhoto?: boolean;
+  hideUi?: boolean;
 }
 
-export function PhotoUploader({
+export interface PhotoUploaderHandle {
+  openPicker: () => void;
+}
+
+export const PhotoUploader = forwardRef<PhotoUploaderHandle, PhotoUploaderProps>(function PhotoUploader({
   onFileSelected,
   selectedFile = null,
   hasSavedPhoto = false,
-}: PhotoUploaderProps) {
+  hideUi = false,
+}, ref) {
   const inputRef = useRef<HTMLInputElement>(null);
   const previewUrl = useMemo(
     () => selectedFile ? URL.createObjectURL(selectedFile) : null,
@@ -183,9 +189,25 @@ export function PhotoUploader({
     }
   }
 
-  function handleReupload() {
+  function openPicker() {
     if (inputRef.current) inputRef.current.value = '';
     inputRef.current?.click();
+  }
+
+  useImperativeHandle(ref, () => ({
+    openPicker,
+  }), []);
+
+  if (hideUi) {
+    return (
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleChange}
+        className="hidden"
+      />
+    );
   }
 
   return (
@@ -201,7 +223,7 @@ export function PhotoUploader({
       {!previewUrl && !hasSavedPhoto ? (
         <button
           type="button"
-          onClick={() => inputRef.current?.click()}
+          onClick={openPicker}
           className="w-full aspect-[4/3] border border-dashed border-white/15 rounded-2xl flex flex-col items-center justify-center gap-2.5 text-white/30 hover:border-purple-500/40 hover:text-purple-400 transition-all duration-200"
         >
           <div className="w-12 h-12 rounded-full bg-white/[0.06] flex items-center justify-center">
@@ -228,7 +250,7 @@ export function PhotoUploader({
           />
           <button
             type="button"
-            onClick={handleReupload}
+            onClick={openPicker}
             className="absolute bottom-3 right-3 z-10 glass text-white text-[11px] font-medium px-3.5 py-1.5 rounded-full transition-transform active:scale-95"
           >
             Change Photo
@@ -245,7 +267,7 @@ export function PhotoUploader({
           <p className="text-[11px] text-white/30 mt-1">You can continue with your saved upload or change it.</p>
           <button
             type="button"
-            onClick={handleReupload}
+            onClick={openPicker}
             className="absolute bottom-3 right-3 z-10 glass text-white text-[11px] font-medium px-3.5 py-1.5 rounded-full transition-transform active:scale-95"
           >
             Change Photo
@@ -254,4 +276,4 @@ export function PhotoUploader({
       )}
     </div>
   );
-}
+});
