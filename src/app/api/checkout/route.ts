@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { templateId, templateName, ttEventId, ttTtclid, ttTtp } = await req.json();
+    const { templateId, templateName, characterId, inputMode, ttEventId, ttTtclid, ttTtp } = await req.json();
 
     const appUrl = getBaseUrl(req);
 
@@ -26,6 +26,8 @@ export async function POST(req: NextRequest) {
       payment_method_types: ['card'],
       metadata: {
         templateId: typeof templateId === 'string' ? templateId : '',
+        characterId: typeof characterId === 'string' ? characterId : '',
+        inputMode: typeof inputMode === 'string' ? inputMode : 'preset',
         userId: currentUser.id,
         generationStatus: 'ready',
       },

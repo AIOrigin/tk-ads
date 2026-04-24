@@ -31,6 +31,8 @@ export async function GET(req: NextRequest) {
       sessionId: session.id,
       paymentStatus: session.payment_status,
       templateId: metadata.templateId || null,
+      characterId: metadata.characterId || null,
+      inputMode: metadata.inputMode || null,
       taskId: metadata.taskId || null,
       generationStatus: metadata.generationStatus || null,
       paid: session.payment_status === 'paid',

@@ -21,6 +21,53 @@
   50% { transform: translateY(-6px); }
 }
 
+@keyframes cta-sheen {
+  0% {
+    transform: translateX(-180%) skewX(-18deg);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.85;
+  }
+  32% {
+    transform: translateX(250%) skewX(-18deg);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(250%) skewX(-18deg);
+    opacity: 0;
+  }
+}
+
+@keyframes cta-breathe {
+  0%, 100% {
+    opacity: 0.38;
+    transform: scale(0.985);
+  }
+  50% {
+    opacity: 0.72;
+    transform: scale(1.03);
+  }
+}
+
+@keyframes cta-icon-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  14% {
+    transform: scale(1.08);
+  }
+  24% {
+    transform: scale(0.98);
+  }
+  34% {
+    transform: scale(1.03);
+  }
+  44%, 100% {
+    transform: scale(1);
+  }
+}
+
 @theme inline {
   --animate-slide-down: slide-down 0.2s ease-out;
   --animate-shake: shake 0.3s ease-in-out;
@@ -44,6 +91,51 @@
 /* Dark page gradient background */
 .bg-dark-gradient {
   background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 50%, #000000 100%);
+}
+
+.landing-cta {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.landing-cta::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  z-index: -1;
+  border-radius: 30px;
+  background: radial-gradient(circle at center, rgba(192, 132, 252, 0.42) 0%, rgba(168, 85, 247, 0.16) 42%, transparent 72%);
+  filter: blur(16px);
+  opacity: 0.4;
+  pointer-events: none;
+  animation: cta-breathe 2.8s ease-in-out infinite;
+}
+
+.landing-cta::after {
+  content: "";
+  position: absolute;
+  top: -28%;
+  left: -42%;
+  width: 32%;
+  height: 156%;
+  transform: skewX(-18deg);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.24), transparent);
+  opacity: 0;
+  pointer-events: none;
+  animation: cta-sheen 4.2s ease-in-out infinite;
+}
+
+.landing-cta-icon {
+  animation: cta-icon-pulse 2.6s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.landing-cta:disabled::before,
+.landing-cta:disabled::after,
+.landing-cta:disabled .landing-cta-icon {
+  animation: none;
+  opacity: 0;
 }
 
 /* Prevent pull-to-refresh when sheet is open */
