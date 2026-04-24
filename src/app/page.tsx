@@ -194,7 +194,7 @@ function DanceSelector({
         </p>
       </div>
       <div
-        className="scrollbar-hide -mx-1 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-1 py-4"
+        className="scrollbar-hide -mx-3 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-3 py-4"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         {templates.map((t) => {
@@ -204,24 +204,26 @@ function DanceSelector({
               type="button"
               key={t.id}
               onClick={() => onSelect(t)}
-              className={`w-[88px] flex-shrink-0 snap-start transition-all duration-200 first:ml-0.5 last:mr-0.5 ${
+              className={`w-[88px] flex-shrink-0 snap-start text-left transition-all duration-200 ${
                 isActive ? 'opacity-100' : 'opacity-60'
               }`}
             >
               <div
-                className={`relative aspect-[9/16] overflow-hidden rounded-xl transition-all duration-200 ${
+                className={`rounded-[15px] p-[2px] transition-all duration-200 ${
                   isActive
-                    ? 'scale-[1.02] ring-2 ring-inset ring-purple-500 shadow-[0_0_12px_rgba(168,85,247,0.4)]'
-                    : ''
+                    ? 'bg-[linear-gradient(180deg,rgba(196,136,255,0.95),rgba(129,74,255,0.95))] shadow-[0_0_18px_rgba(168,85,247,0.28)]'
+                    : 'bg-white/[0.08]'
                 }`}
               >
-                <img
-                  src={t.thumbnailUrl}
-                  alt={t.name}
-                  loading="lazy"
-                  decoding="async"
-                  className="h-full w-full object-cover"
-                />
+                <div className="relative aspect-[9/16] overflow-hidden rounded-[13px] bg-[#181818]">
+                  <img
+                    src={t.thumbnailUrl}
+                    alt={t.name}
+                    loading="lazy"
+                    decoding="async"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
               </div>
               <p className={`mt-1.5 truncate text-center text-[11px] ${
                 isActive ? 'font-medium text-white' : 'text-white/40'
