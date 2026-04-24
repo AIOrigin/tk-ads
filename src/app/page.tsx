@@ -163,10 +163,23 @@ function buildFunnelEventProps({
   };
 }
 
+function shuffleTemplates(items: Template[]): Template[] {
+  const shuffled = [...items];
+
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[randomIndex]] = [shuffled[randomIndex], shuffled[index]];
+  }
+
+  return shuffled;
+}
+
 function DanceSelector({
+  templates,
   selected,
   onSelect,
 }: {
+  templates: Template[];
   selected: Template;
   onSelect: (t: Template) => void;
 }) {
@@ -184,14 +197,14 @@ function DanceSelector({
         className="scrollbar-hide -mx-1 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-1 py-4"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
-        {allTemplates.map((t) => {
+        {templates.map((t) => {
           const isActive = t.id === selected.id;
           return (
             <button
               type="button"
               key={t.id}
               onClick={() => onSelect(t)}
-              className={`w-20 flex-shrink-0 snap-start transition-all duration-200 first:ml-0.5 last:mr-0.5 ${
+              className={`w-[88px] flex-shrink-0 snap-start transition-all duration-200 first:ml-0.5 last:mr-0.5 ${
                 isActive ? 'opacity-100' : 'opacity-60'
               }`}
             >
@@ -209,11 +222,8 @@ function DanceSelector({
                   decoding="async"
                   className="h-full w-full object-cover"
                 />
-                <div className="absolute bottom-1 right-1 rounded bg-black/60 px-1 py-0.5 text-[9px] text-white">
-                  {t.durationSeconds}s
-                </div>
               </div>
-              <p className={`mt-1 truncate text-center text-[10px] ${
+              <p className={`mt-1.5 truncate text-center text-[11px] ${
                 isActive ? 'font-medium text-white' : 'text-white/40'
               }`}>
                 {t.name}
@@ -311,7 +321,7 @@ function SelectedCharacterSummary({
 }) {
   return (
     <div className="overflow-hidden rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top,_rgba(168,85,247,0.18),_transparent_45%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] shadow-[0_18px_50px_rgba(0,0,0,0.3)]">
-      <div className="relative aspect-[5/4] overflow-hidden">
+      <div className="relative aspect-[4/3] overflow-hidden">
         <img
           src={character.imageUrl}
           alt={`${character.name} blurred backdrop`}
@@ -321,17 +331,17 @@ function SelectedCharacterSummary({
           className="absolute inset-0 h-full w-full scale-110 object-cover blur-3xl brightness-[0.38]"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-transparent to-black/65" />
-        <div className="absolute inset-0 z-[1] flex items-start justify-center px-4 pb-2 pt-6">
+        <div className="absolute inset-0 z-[1] flex items-start justify-center px-4 pb-1 pt-5">
           <img
             src={character.imageUrl}
             alt={character.name}
             loading="lazy"
             decoding="async"
-            className="h-full w-auto max-w-full rounded-[22px] object-contain drop-shadow-[0_20px_40px_rgba(0,0,0,0.45)]"
+            className="h-[96%] w-auto max-w-full rounded-[22px] object-contain drop-shadow-[0_20px_40px_rgba(0,0,0,0.45)]"
           />
         </div>
       </div>
-      <div className="px-4 pb-4 pt-3">
+      <div className="px-4 pb-3.5 pt-2.5">
         <p className="truncate text-[10px] font-medium uppercase tracking-[0.28em] text-white/28">
           {character.name}
         </p>
@@ -339,7 +349,7 @@ function SelectedCharacterSummary({
           <button
             type="button"
             onClick={onAction}
-            className="mt-3 inline-flex items-center rounded-full bg-white/[0.06] px-4 py-2.5 text-[13px] font-semibold text-purple-200 transition-all hover:bg-white/[0.09] hover:text-white"
+            className="mt-2.5 inline-flex items-center rounded-full bg-white/[0.06] px-4 py-2.5 text-[13px] font-semibold text-purple-200 transition-all hover:bg-white/[0.09] hover:text-white"
           >
             {actionLabel}
           </button>
@@ -363,7 +373,7 @@ function LandingSkeleton() {
             {Array.from({ length: 5 }).map((_, index) => (
               <div
                 key={index}
-                className="w-20 flex-shrink-0 animate-pulse"
+                className="w-[88px] flex-shrink-0 animate-pulse"
               >
                 <div className="aspect-[9/16] rounded-xl bg-white/[0.08]" />
                 <div className="mt-1 h-3 rounded-full bg-white/[0.06]" />
@@ -375,7 +385,7 @@ function LandingSkeleton() {
         <div className="mb-5 px-1">
           <div className="mb-3 h-5 w-60 animate-pulse rounded-full bg-white/[0.06]" />
           <div className="overflow-hidden rounded-[28px] border border-white/8 bg-white/[0.04] p-4">
-            <div className="aspect-[5/4] animate-pulse rounded-[24px] bg-white/[0.06]" />
+            <div className="aspect-[4/3] animate-pulse rounded-[24px] bg-white/[0.06]" />
           </div>
         </div>
 
@@ -393,7 +403,8 @@ function HomeContent() {
   const sessionId = searchParams.get('session_id');
   const canceled = searchParams.get('canceled');
   const shouldResume = searchParams.get('resume') === '1';
-  const urlCharacter = getPresetCharacterById(searchParams.get('characterId')) ?? null;
+  const requestedCharacter = searchParams.get('character') ?? searchParams.get('characterId');
+  const urlCharacter = getPresetCharacterById(requestedCharacter) ?? null;
   const hasUrlCharacterVariant = !!urlCharacter;
   const trackedPaymentCancelRef = useRef(false);
   const landingHydratedRef = useRef(false);
@@ -409,8 +420,9 @@ function HomeContent() {
   useAuth();
   const { selectTemplate } = useCreateStore();
 
+  const [shuffledTemplates] = useState<Template[]>(() => shuffleTemplates(allTemplates));
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [selectedDance, setSelectedDance] = useState<Template>(allTemplates[0]);
+  const [selectedDance, setSelectedDance] = useState<Template>(shuffledTemplates[0] ?? allTemplates[0]);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string>(urlCharacter?.id ?? defaultPresetCharacter.id);
   const [inputMode, setInputMode] = useState<CreateInputMode>('preset');
   const [characterSelectionSource, setCharacterSelectionSource] = useState<CharacterSelectionSource>(urlCharacter ? 'url' : 'default');
@@ -1049,6 +1061,7 @@ function HomeContent() {
           <MyVideos videos={myVideos} />
 
           <DanceSelector
+            templates={shuffledTemplates}
             selected={selectedDance}
             onSelect={handleTemplateSelect}
           />
@@ -1073,7 +1086,7 @@ function HomeContent() {
               inputMode === 'preset' ? (
                 <SelectedCharacterSummary
                   character={selectedCharacter}
-                  actionLabel="Use my photo"
+                  actionLabel="Change another photo"
                   onAction={() => handleInputModeSelect('upload')}
                 />
               ) : (

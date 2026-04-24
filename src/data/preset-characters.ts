@@ -2,6 +2,7 @@ const CHARACTER_ASSET_BASE_URL = 'https://assets.tool.elser.ai/community/ai-pet-
 
 export interface PresetCharacter {
   id: string;
+  legacyIds: string[];
   name: string;
   imageUrl: string;
   fileName: string;
@@ -10,11 +11,13 @@ export interface PresetCharacter {
 
 function createPresetCharacter(
   id: string,
+  legacyIds: string[],
   name: string,
   fileName: string,
 ): PresetCharacter {
   return {
     id,
+    legacyIds,
     name,
     imageUrl: `${CHARACTER_ASSET_BASE_URL}/${fileName}`,
     fileName,
@@ -23,21 +26,21 @@ function createPresetCharacter(
 }
 
 export const presetCharacters: PresetCharacter[] = [
-  createPresetCharacter('char-1', 'Green-Eyed Penguin', 'green-eyed-penguin.webp'),
-  createPresetCharacter('char-2', 'Winter Outfit Penguin', 'winter-outfit-penguin.webp'),
-  createPresetCharacter('char-3', 'Hoodie Chipmunk', 'hoodie-chipmunk.webp'),
-  createPresetCharacter('char-4', 'Beach Otter', 'beach-otter.webp'),
-  createPresetCharacter('char-5', 'Hoodie Penguin', 'hoodie-penguin.webp'),
-  createPresetCharacter('char-6', 'Overalls Penguin', 'overalls-penguin.webp'),
-  createPresetCharacter('char-7', 'Sweater Penguin', 'sweater-penguin.webp'),
-  createPresetCharacter('char-8', 'Otter', 'otter.webp'),
+  createPresetCharacter('green-eyed-penguin', ['char-1'], 'Green-Eyed Penguin', 'green-eyed-penguin.webp'),
+  createPresetCharacter('winter-outfit-penguin', ['char-2'], 'Winter Outfit Penguin', 'winter-outfit-penguin.webp'),
+  createPresetCharacter('hoodie-chipmunk', ['char-3'], 'Hoodie Chipmunk', 'hoodie-chipmunk.webp'),
+  createPresetCharacter('beach-otter', ['char-4'], 'Beach Otter', 'beach-otter.webp'),
+  createPresetCharacter('hoodie-penguin', ['char-5'], 'Hoodie Penguin', 'hoodie-penguin.webp'),
+  createPresetCharacter('overalls-penguin', ['char-6'], 'Overalls Penguin', 'overalls-penguin.webp'),
+  createPresetCharacter('sweater-penguin', ['char-7'], 'Sweater Penguin', 'sweater-penguin.webp'),
+  createPresetCharacter('otter', ['char-8'], 'Otter', 'otter.webp'),
 ];
 
-export const DEFAULT_PRESET_CHARACTER_ID = presetCharacters[0]?.id ?? 'char-1';
+export const DEFAULT_PRESET_CHARACTER_ID = presetCharacters[0]?.id ?? 'green-eyed-penguin';
 
 export function getPresetCharacterById(id: string | null | undefined): PresetCharacter | null {
   if (!id) return null;
-  return presetCharacters.find((character) => character.id === id) ?? null;
+  return presetCharacters.find((character) => character.id === id || character.legacyIds.includes(id)) ?? null;
 }
 
 export async function createPresetCharacterFile(character: PresetCharacter): Promise<File> {
