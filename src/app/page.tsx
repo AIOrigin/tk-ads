@@ -349,7 +349,7 @@ function SelectedCharacterSummary({
           <button
             type="button"
             onClick={onAction}
-            className="mt-2.5 inline-flex items-center rounded-full bg-white/[0.06] px-4 py-2.5 text-[13px] font-semibold text-purple-200 transition-all hover:bg-white/[0.09] hover:text-white"
+            className="mt-2.5 inline-flex items-center rounded-full bg-white/[0.06] px-5 py-3 text-[14px] font-semibold text-purple-200 transition-all hover:bg-white/[0.09] hover:text-white"
           >
             {actionLabel}
           </button>
