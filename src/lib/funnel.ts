@@ -5,6 +5,8 @@ export const PENDING_TEMPLATE_KEY = 'dance_pending_template';
 export const PENDING_PHOTO_READY_KEY = 'dance_pending_photo_saved';
 export const PENDING_SESSION_ID_KEY = 'dance_pending_session_id';
 export const PENDING_TASK_ID_KEY = 'dance_pending_task_id';
+export const PENDING_CHARACTER_ID_KEY = 'dance_pending_character_id';
+export const PENDING_INPUT_MODE_KEY = 'dance_pending_input_mode';
 
 // --- My Videos (localStorage) ---
 const MY_VIDEOS_KEY = 'dance_my_videos';

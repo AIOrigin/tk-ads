@@ -11,12 +11,6 @@ interface TemplateCardProps {
   onSelect: (template: Template) => void;
 }
 
-function formatDuration(seconds: number) {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m}:${s.toString().padStart(2, '0')}`;
-}
-
 function TemplateCard({ template, isActive, onTap, onSelect }: TemplateCardProps) {
   function handleClick() {
     if (!isActive) {
@@ -56,10 +50,6 @@ function TemplateCard({ template, isActive, onTap, onSelect }: TemplateCardProps
           </button>
         </div>
       )}
-
-      <div className="absolute top-2.5 right-2.5 bg-black/50 backdrop-blur-sm text-white text-[10px] font-medium px-2 py-0.5 rounded-md">
-        {formatDuration(template.durationSeconds)}
-      </div>
 
       <div className="absolute bottom-0 left-0 right-0 card-gradient-overlay px-3 pb-3 pt-10 pointer-events-none">
         <p className="text-white font-semibold text-[13px] leading-tight">{template.name}</p>
