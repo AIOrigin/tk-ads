@@ -46,8 +46,30 @@ export function sanitizeRedirect(target: string | null | undefined): string {
   return target;
 }
 
-export function buildLoginRedirect(redirect: string | null | undefined): string {
-  return `/login?redirect=${encodeURIComponent(sanitizeRedirect(redirect))}`;
+export function buildLoginRedirect(redirect: string | null | undefined, email?: string | null): string {
+  const params = new URLSearchParams({
+    redirect: sanitizeRedirect(redirect),
+  });
+
+  if (email?.trim()) {
+    params.set('email', email.trim());
+  }
+
+  return `/login?${params.toString()}`;
+}
+
+export function getAuthBackTarget(redirect: string | null | undefined): string {
+  const safeRedirect = sanitizeRedirect(redirect);
+
+  if (
+    safeRedirect.startsWith('/login') ||
+    safeRedirect.startsWith('/auth/') ||
+    safeRedirect.startsWith('/create/')
+  ) {
+    return DEFAULT_REDIRECT;
+  }
+
+  return safeRedirect;
 }
 
 export function savePostAuthRedirect(redirect: string | null | undefined): void {

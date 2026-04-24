@@ -8,7 +8,7 @@ import { useAuthStore } from '@/lib/store/auth-store';
 import { toast } from '@/components/ui/Toast';
 import { Button } from '@/components/ui/Button';
 import { trackEvent, identifyUser } from '@/lib/analytics';
-import { consumePostAuthRedirect, sanitizeRedirect } from '@/lib/funnel';
+import { buildLoginRedirect, consumePostAuthRedirect, sanitizeRedirect } from '@/lib/funnel';
 
 function VerifyContent() {
   const searchParams = useSearchParams();
@@ -89,7 +89,11 @@ function VerifyContent() {
 
   return (
     <div className="min-h-screen flex flex-col px-6 pt-16 bg-black">
-      <button type="button" onClick={() => router.back()} className="mb-8 text-white/50 self-start hover:text-white/80 transition-colors">
+      <button
+        type="button"
+        onClick={() => router.replace(buildLoginRedirect(redirect, email))}
+        className="mb-8 text-white/50 self-start hover:text-white/80 transition-colors"
+      >
         &larr; Back
       </button>
 

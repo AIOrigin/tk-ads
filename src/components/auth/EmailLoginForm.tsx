@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { sendOTP } from '@/lib/api/user-api';
@@ -8,10 +8,20 @@ import { toast } from '@/components/ui/Toast';
 import { sanitizeRedirect } from '@/lib/funnel';
 import { trackEvent } from '@/lib/analytics';
 
-export function EmailLoginForm({ redirect }: { redirect: string }) {
-  const [email, setEmail] = useState('');
+export function EmailLoginForm({
+  redirect,
+  initialEmail = '',
+}: {
+  redirect: string;
+  initialEmail?: string;
+}) {
+  const [email, setEmail] = useState(initialEmail);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    setEmail(initialEmail);
+  }, [initialEmail]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
