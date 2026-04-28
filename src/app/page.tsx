@@ -1,17 +1,15 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect, Suspense } from 'react';
+import { useState, useCallback, useRef, useEffect, Suspense, type FormEvent } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { useCreateStore } from '@/lib/store/create-store';
-import { useAuthStore } from '@/lib/store/auth-store';
 import { PhotoUploader, type PhotoUploaderHandle } from '@/components/create/PhotoUploader';
 import { PresetCharacterSelector } from '@/components/create/PresetCharacterSelector';
 import { Button } from '@/components/ui/Button';
+import { BottomSheet } from '@/components/ui/BottomSheet';
 import { toast } from '@/components/ui/Toast';
 import { getToken } from '@/lib/api/client';
-import { getCredits, getTotalCredits } from '@/lib/api/user-api';
 import { trackEvent, generateEventId, getTikTokClickId, getTikTokTtp } from '@/lib/analytics';
 import templates from '@/data/templates.json';
 import {
@@ -39,11 +37,11 @@ import {
   PHOTO_STORE,
   type SavedVideo,
 } from '@/lib/funnel';
-import { AuthModal } from '@/components/auth/AuthModal';
 
 const allTemplates = templates as Template[];
 const defaultPresetCharacter = getPresetCharacterById(DEFAULT_PRESET_CHARACTER_ID) ?? presetCharacters[0];
 const PAYMENT_EVENT_IDS_KEY = 'dance_payment_event_ids';
+const DELIVERY_EMAIL_KEY = 'dance_delivery_email';
 
 interface CheckoutSessionInfo {
   sessionId: string;
@@ -163,6 +161,10 @@ function buildFunnelEventProps({
   };
 }
 
+function isValidDeliveryEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+}
+
 function shuffleTemplates(items: Template[]): Template[] {
   const shuffled = [...items];
 
@@ -172,6 +174,73 @@ function shuffleTemplates(items: Template[]): Template[] {
   }
 
   return shuffled;
+}
+
+function DeliveryEmailSheet({
+  isOpen,
+  email,
+  isSubmitting,
+  onClose,
+  onEmailChange,
+  onSubmit,
+}: {
+  isOpen: boolean;
+  email: string;
+  isSubmitting: boolean;
+  onClose: () => void;
+  onEmailChange: (email: string) => void;
+  onSubmit: (email: string) => void;
+}) {
+  const trimmedEmail = email.trim().toLowerCase();
+  const canSubmit = isValidDeliveryEmail(trimmedEmail) && !isSubmitting;
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canSubmit) return;
+    onSubmit(trimmedEmail);
+  }
+
+  return (
+    <BottomSheet isOpen={isOpen} onClose={onClose}>
+      <form onSubmit={handleSubmit} className="space-y-5 pb-1">
+        <div>
+          <h2 className="text-[22px] font-bold tracking-tight text-white">
+            Where should we send your video?
+          </h2>
+          <p className="mt-2 text-[14px] leading-5 text-white/55">
+            We&apos;ll email your free watermarked preview here. If you unlock the original, we&apos;ll send that link too.
+          </p>
+        </div>
+
+        <label className="block">
+          <span className="mb-2 block text-[12px] font-semibold uppercase tracking-[0.16em] text-white/35">
+            Delivery email
+          </span>
+          <input
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            autoFocus
+            value={email}
+            onChange={(event) => onEmailChange(event.target.value)}
+            placeholder="you@example.com"
+            className="h-14 w-full rounded-2xl border border-white/10 bg-white/[0.07] px-4 text-[16px] font-medium text-white outline-none transition focus:border-purple-300/60 focus:bg-white/[0.1]"
+          />
+        </label>
+
+        <Button
+          type="submit"
+          variant="glow"
+          size="lg"
+          className="h-14 w-full rounded-2xl text-[16px]"
+          disabled={!canSubmit}
+          isLoading={isSubmitting}
+        >
+          Start generating
+        </Button>
+      </form>
+    </BottomSheet>
+  );
 }
 
 function DanceSelector({
@@ -419,11 +488,11 @@ function HomeContent() {
     }
   }, [router, sessionId, canceled, shouldResume]);
 
-  useAuth();
-  const { selectTemplate } = useCreateStore();
+  const { user: authUser } = useAuth();
 
   const [shuffledTemplates] = useState<Template[]>(() => shuffleTemplates(allTemplates));
-  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showEmailSheet, setShowEmailSheet] = useState(false);
+  const [deliveryEmail, setDeliveryEmail] = useState('');
   const [selectedDance, setSelectedDance] = useState<Template>(shuffledTemplates[0] ?? allTemplates[0]);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string>(urlCharacter?.id ?? defaultPresetCharacter.id);
   const [inputMode, setInputMode] = useState<CreateInputMode>('preset');
@@ -439,6 +508,16 @@ function HomeContent() {
   const selectedCharacter = getPresetCharacterById(selectedCharacterId) ?? defaultPresetCharacter;
   const visibleCharacters = hasUrlCharacterVariant && urlCharacter ? [urlCharacter] : presetCharacters;
   const canCreate = inputMode === 'preset' || !!photoFile || hasSavedPhoto;
+
+  useEffect(() => {
+    if (deliveryEmail) return;
+
+    const storedEmail = localStorage.getItem(DELIVERY_EMAIL_KEY) ?? '';
+    const prefillEmail = authUser?.email || storedEmail;
+    if (prefillEmail) {
+      setDeliveryEmail(prefillEmail);
+    }
+  }, [authUser?.email, deliveryEmail]);
 
   const handleInputModeSelect = useCallback((mode: CreateInputMode) => {
     setInputMode(mode);
@@ -854,6 +933,104 @@ function HomeContent() {
     }));
   }, [selectedDance.id, selectedDance.name, selectedCharacter.id, characterSelectionSource]);
 
+  async function startGuestPreview(email: string) {
+    if (!selectedDance) return;
+
+    const uploadedPhoto = await getUploadedPhoto();
+    const generationPhoto = await getGenerationPhoto(inputMode, selectedCharacter);
+
+    if (inputMode === 'upload' && !generationPhoto) {
+      toast.error('Please upload a photo to continue.');
+      setPhotoFile(null);
+      setHasSavedPhoto(false);
+      localStorage.removeItem(PENDING_PHOTO_READY_KEY);
+      return;
+    }
+
+    if (!generationPhoto) {
+      toast.error('Unable to load the selected preset character. Please try another character.');
+      return;
+    }
+
+    if (uploadedPhoto) {
+      setPhotoFile(uploadedPhoto);
+      setHasSavedPhoto(true);
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!isValidDeliveryEmail(normalizedEmail)) {
+      toast.error('Please enter a valid email address.');
+      return;
+    }
+
+    setIsProcessing(true);
+    setShowEmailSheet(false);
+
+    try {
+      if (uploadedPhoto) {
+        await savePhotoToDB(uploadedPhoto);
+      }
+      savePendingDraft(selectedDance, selectedCharacter.id, inputMode);
+
+      const previewEventId = generateEventId();
+      trackEvent('preview_start', currentEventProps({
+        eventId: previewEventId,
+        delivery: 'email',
+      }));
+
+      const formData = new FormData();
+      formData.append('email', normalizedEmail);
+      formData.append('motion_video_url', selectedDance.motionVideoUrl);
+      formData.append('mode', selectedDance.mode);
+      formData.append('character_orientation', selectedDance.characterOrientation);
+      formData.append('duration_seconds', String(selectedDance.durationSeconds));
+      formData.append('photo', generationPhoto);
+      formData.append('template_id', selectedDance.id);
+      formData.append('template_name', selectedDance.name);
+      formData.append('character_id', selectedCharacter.id);
+      formData.append('input_mode', inputMode);
+      formData.append('tt_event_id', previewEventId);
+      formData.append('tt_template_id', selectedDance.id);
+      formData.append('tt_template_name', selectedDance.name);
+
+      const ttclid = getTikTokClickId();
+      const ttp = getTikTokTtp();
+      if (ttclid) formData.append('tt_ttclid', ttclid);
+      if (ttp) formData.append('tt_ttp', ttp);
+
+      const response = await fetch('/api/preview', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to start your preview.');
+      }
+
+      if (!result.orderId || !result.token) {
+        throw new Error('Preview started, but the order link was not returned.');
+      }
+
+      trackEvent('generation_start', currentEventProps({
+        taskId: result.taskId ?? result.task_id,
+        orderId: result.orderId,
+        delivery: 'email',
+      }));
+
+      localStorage.setItem(DELIVERY_EMAIL_KEY, normalizedEmail);
+      clearPendingDraft();
+      await clearPhotoDB();
+      setPaidTemplateRecovered(false);
+      router.replace(`/order/${result.orderId}?token=${encodeURIComponent(result.token)}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to start your preview. Please try again.';
+      toast.error(message);
+      setIsProcessing(false);
+    }
+  }
+
   async function handlePay() {
     if (!selectedDance) return;
 
@@ -878,165 +1055,15 @@ function HomeContent() {
       setHasSavedPhoto(true);
     }
 
-    if (!useAuthStore.getState().isAuthenticated) {
-      selectTemplate(selectedDance);
-      if (uploadedPhoto) {
-        await savePhotoToDB(uploadedPhoto);
-      }
-      savePendingDraft(selectedDance, selectedCharacter.id, inputMode);
-
-      setShowAuthModal(true);
-      return;
-    }
-
-    setIsProcessing(true);
-
-    try {
-      if (uploadedPhoto) {
-        await savePhotoToDB(uploadedPhoto);
-      }
-      savePendingDraft(selectedDance, selectedCharacter.id, inputMode);
-
-      const creditsNeeded = Math.ceil((selectedDance.mode === '720p' ? 17 : 26) * selectedDance.durationSeconds * 1.8);
-      let hasEnoughCredits = false;
-      try {
-        const credits = await getCredits();
-        const total = getTotalCredits(credits);
-        hasEnoughCredits = total >= creditsNeeded;
-      } catch {
-        // Ignore credit lookup issues and fall through to payment.
-      }
-
-      if (hasEnoughCredits) {
-        const formData = new FormData();
-        formData.append('motion_video_url', selectedDance.motionVideoUrl);
-        formData.append('mode', selectedDance.mode);
-        formData.append('character_orientation', selectedDance.characterOrientation);
-        formData.append('duration_seconds', String(selectedDance.durationSeconds));
-        formData.append('photo', generationPhoto);
-
-        const token = getToken();
-        const response = await fetch('/api/generate-free', {
-          method: 'POST',
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: formData,
-        });
-
-        const result = await response.json();
-
-        if (response.ok && result.task_id) {
-          trackEvent('generation_start', currentEventProps({
-            taskId: result.task_id,
-          }));
-
-          clearPendingDraft();
-          localStorage.setItem(PENDING_SESSION_ID_KEY, 'credits');
-          await clearPhotoDB();
-          router.replace(`/create/${result.task_id}`);
-          return;
-        }
-
-        if (response.status !== 402) {
-          throw new Error(result.error || 'Generation failed');
-        }
-      }
-
-      const checkoutEventId = generateEventId();
-      trackEvent('payment_start', currentEventProps({
-        amount: 1.99,
-        eventId: checkoutEventId,
-      }));
-
-      if (sessionId) {
-        const resumeEventId = getPaymentEventId(sessionId) || generateEventId();
-        const formData = new FormData();
-        formData.append('session_id', sessionId);
-        formData.append('motion_video_url', selectedDance.motionVideoUrl);
-        formData.append('mode', selectedDance.mode);
-        formData.append('character_orientation', selectedDance.characterOrientation);
-        formData.append('duration_seconds', String(selectedDance.durationSeconds));
-        formData.append('photo', generationPhoto);
-        formData.append('tt_event_id', resumeEventId);
-        formData.append('tt_template_id', selectedDance.id);
-        formData.append('tt_template_name', selectedDance.name);
-        const ttclid2 = getTikTokClickId();
-        const ttp2 = getTikTokTtp();
-        if (ttclid2) formData.append('tt_ttclid', ttclid2);
-        if (ttp2) formData.append('tt_ttp', ttp2);
-
-        const token = getToken();
-        const response = await fetch('/api/generate', {
-          method: 'POST',
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: formData,
-        });
-
-        const result = await response.json();
-        if (!response.ok) {
-          if (response.status === 401) {
-            router.replace(buildLoginRedirect(getCurrentPathWithSearch()));
-            return;
-          }
-
-          throw new Error(result.error || 'Failed to resume paid session');
-        }
-
-        trackEvent('generation_start', currentEventProps({
-          taskId: result.task_id,
-        }));
-
-        clearPendingDraft();
-        localStorage.setItem(PENDING_SESSION_ID_KEY, sessionId);
-        await clearPhotoDB();
-        setPaidTemplateRecovered(false);
-        router.replace(`/create/${result.task_id}`);
-        return;
-      }
-
-      const res = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
-        },
-        body: JSON.stringify({
-          templateId: selectedDance.id,
-          templateName: selectedDance.name,
-          characterId: selectedCharacter.id,
-          inputMode,
-          ttEventId: checkoutEventId,
-          ttTtclid: getTikTokClickId() || undefined,
-          ttTtp: getTikTokTtp() || undefined,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        if (res.status === 401) {
-          router.replace(buildLoginRedirect(getCurrentPathWithSearch()));
-          return;
-        }
-        throw new Error(data.error || 'Failed to create checkout session');
-      }
-
-      if (!data.url) {
-        throw new Error('No checkout URL returned');
-      }
-
-      window.location.href = data.url;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to start payment. Please try again.';
-      toast.error(message);
-      setIsProcessing(false);
-    }
+    const prefillEmail = deliveryEmail || authUser?.email || localStorage.getItem(DELIVERY_EMAIL_KEY) || '';
+    setDeliveryEmail(prefillEmail);
+    setShowEmailSheet(true);
+    trackEvent('delivery_email_prompt', currentEventProps({
+      source: 'generate_button',
+    }));
   }
 
-  const primaryCtaLabel = sessionId ? 'Finish My Video' : 'Create My Video';
+  const primaryCtaLabel = sessionId ? 'Finish My Video' : 'Generate Video';
 
   if (isProcessing && sessionId) {
     return (
@@ -1172,12 +1199,16 @@ function HomeContent() {
         </div>
       </div>
 
-      <AuthModal
-        isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
-        onSuccess={() => {
-          setShowAuthModal(false);
-          setTimeout(() => handlePay(), 300);
+      <DeliveryEmailSheet
+        isOpen={showEmailSheet}
+        email={deliveryEmail}
+        isSubmitting={isProcessing}
+        onClose={() => {
+          if (!isProcessing) setShowEmailSheet(false);
+        }}
+        onEmailChange={setDeliveryEmail}
+        onSubmit={(email) => {
+          void startGuestPreview(email);
         }}
       />
     </>

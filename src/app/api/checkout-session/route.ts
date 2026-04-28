@@ -1,12 +1,15 @@
-import Stripe from 'stripe';
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUserFromAuthHeader } from '@/lib/server/current-user';
+import { getStripeClient } from '@/lib/server/stripe-client';
 
 export const runtime = 'nodejs';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!.trim());
-
 export async function GET(req: NextRequest) {
+  const stripe = getStripeClient();
+  if (!stripe) {
+    return NextResponse.json({ error: 'Stripe is not configured' }, { status: 500 });
+  }
+
   const authHeader = req.headers.get('Authorization');
   const currentUser = await getCurrentUserFromAuthHeader(authHeader);
 
