@@ -1,26 +1,43 @@
 'use client';
 
-import { useState, useCallback, useRef, Suspense } from 'react';
+import { useState, useCallback, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { OTPInput, type OTPInputHandle } from '@/components/auth/OTPInput';
 import { verifyOTP, sendOTP, getMe } from '@/lib/api/user-api';
+import { parseApiError } from '@/lib/api/client';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { toast } from '@/components/ui/Toast';
 import { Button } from '@/components/ui/Button';
 import { trackEvent, identifyUser } from '@/lib/analytics';
 import { buildLoginRedirect, consumePostAuthRedirect, sanitizeRedirect } from '@/lib/funnel';
+import { OTP_RESEND_COOLDOWN_SECONDS } from '@/lib/constants';
+import { useCountdown } from '@/lib/hooks/useCountdown';
+
+const SIGNIN_EMAIL_SENT_CODE = 'SIGNIN_EMAIL_SENT';
 
 function VerifyContent() {
   const searchParams = useSearchParams();
   const email = searchParams.get('email') || '';
   const redirect = sanitizeRedirect(searchParams.get('redirect'));
+  const otpSentAt = searchParams.get('otpSentAt');
   const router = useRouter();
   const setAuth = useAuthStore((s) => s.setAuth);
 
   const [isVerifying, setIsVerifying] = useState(false);
   const [error, setError] = useState(false);
-  const [resendCooldown, setResendCooldown] = useState(0);
+  const { seconds: resendCooldown, start: startResendCooldown } = useCountdown();
   const otpRef = useRef<OTPInputHandle>(null);
+
+  useEffect(() => {
+    const sentAt = Number(otpSentAt);
+    if (!Number.isFinite(sentAt) || sentAt <= 0) return;
+
+    const elapsedSeconds = Math.floor((Date.now() - sentAt) / 1000);
+    const remainingSeconds = OTP_RESEND_COOLDOWN_SECONDS - elapsedSeconds;
+    if (remainingSeconds > 0) {
+      startResendCooldown(remainingSeconds);
+    }
+  }, [otpSentAt, startResendCooldown]);
 
   const handleComplete = useCallback(
     async (code: string) => {
@@ -69,21 +86,26 @@ function VerifyContent() {
   );
 
   async function handleResend() {
+    if (resendCooldown > 0) return;
+
     try {
       await sendOTP(email);
       toast.success('New code sent!');
-      setResendCooldown(30);
-      const timer = setInterval(() => {
-        setResendCooldown((prev) => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } catch {
-      toast.error('Failed to resend code');
+      startResendCooldown(OTP_RESEND_COOLDOWN_SECONDS);
+    } catch (err: unknown) {
+      const apiError = await parseApiError(err);
+      trackEvent('login_resend_code_failed', {
+        method: 'email',
+        status: apiError.status ?? 0,
+        errorCode: apiError.code ?? 'unknown',
+      });
+
+      if (apiError.status === 400 && apiError.code === SIGNIN_EMAIL_SENT_CODE) {
+        toast.info('Code already sent, check your email');
+        startResendCooldown(OTP_RESEND_COOLDOWN_SECONDS);
+      } else {
+        toast.error('Failed to resend code');
+      }
     }
   }
 

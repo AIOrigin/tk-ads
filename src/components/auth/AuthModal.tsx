@@ -5,9 +5,14 @@ import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
 import { OTPInput, type OTPInputHandle } from '@/components/auth/OTPInput';
 import { sendOTP, verifyOTP, getMe } from '@/lib/api/user-api';
+import { parseApiError } from '@/lib/api/client';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { trackEvent, identifyUser } from '@/lib/analytics';
 import { BottomSheet } from '@/components/ui/BottomSheet';
+import { OTP_RESEND_COOLDOWN_SECONDS } from '@/lib/constants';
+import { useCountdown } from '@/lib/hooks/useCountdown';
+
+const SIGNIN_EMAIL_SENT_CODE = 'SIGNIN_EMAIL_SENT';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -20,7 +25,11 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(false);
-  const [resendCooldown, setResendCooldown] = useState(0);
+  const {
+    seconds: resendCooldown,
+    start: startResendCooldown,
+    reset: resetResendCooldown,
+  } = useCountdown();
   
   const otpRef = useRef<OTPInputHandle>(null);
   const setAuth = useAuthStore((s) => s.setAuth);
@@ -30,8 +39,8 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
     setEmail('');
     setIsLoading(false);
     setError(false);
-    setResendCooldown(0);
-  }, []);
+    resetResendCooldown();
+  }, [resetResendCooldown]);
 
   const handleClose = useCallback(() => {
     onClose();
@@ -47,11 +56,13 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
     
     try {
       await sendOTP(email.trim());
+      startResendCooldown(OTP_RESEND_COOLDOWN_SECONDS);
       setStep('otp');
     } catch (err: unknown) {
-      const error = err as { response?: { status: number } };
-      if (error?.response?.status === 400) {
+      const apiError = await parseApiError(err);
+      if (apiError.status === 400 && apiError.code === SIGNIN_EMAIL_SENT_CODE) {
         toast.info('Code already sent, check your email');
+        startResendCooldown(OTP_RESEND_COOLDOWN_SECONDS);
         setStep('otp');
       } else {
         toast.error('Failed to send code. Please try again.');
@@ -107,21 +118,26 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
   };
 
   const handleResend = async () => {
+    if (resendCooldown > 0) return;
+
     try {
       await sendOTP(email.trim());
       toast.success('New code sent!');
-      setResendCooldown(30);
-      const timer = setInterval(() => {
-        setResendCooldown((prev) => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } catch {
-      toast.error('Failed to resend code');
+      startResendCooldown(OTP_RESEND_COOLDOWN_SECONDS);
+    } catch (err: unknown) {
+      const apiError = await parseApiError(err);
+      trackEvent('login_resend_code_failed', {
+        method: 'email',
+        status: apiError.status ?? 0,
+        errorCode: apiError.code ?? 'unknown',
+      });
+
+      if (apiError.status === 400 && apiError.code === SIGNIN_EMAIL_SENT_CODE) {
+        toast.info('Code already sent, check your email');
+        startResendCooldown(OTP_RESEND_COOLDOWN_SECONDS);
+      } else {
+        toast.error('Failed to resend code');
+      }
     }
   };
 
