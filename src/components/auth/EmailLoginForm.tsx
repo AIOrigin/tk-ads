@@ -4,9 +4,21 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { sendOTP } from '@/lib/api/user-api';
+import { parseApiError } from '@/lib/api/client';
 import { toast } from '@/components/ui/Toast';
 import { sanitizeRedirect } from '@/lib/funnel';
 import { trackEvent } from '@/lib/analytics';
+
+const SIGNIN_EMAIL_SENT_CODE = 'SIGNIN_EMAIL_SENT';
+
+function buildVerifyUrl(email: string, redirect: string): string {
+  const params = new URLSearchParams({
+    email,
+    redirect,
+    otpSentAt: String(Date.now()),
+  });
+  return `/login/verify?${params.toString()}`;
+}
 
 export function EmailLoginForm({
   redirect,
@@ -29,19 +41,16 @@ export function EmailLoginForm({
 
     setIsLoading(true);
     const safeRedirect = sanitizeRedirect(redirect);
+    const trimmedEmail = email.trim();
     trackEvent('login_start', { method: 'email' });
     try {
-      await sendOTP(email.trim());
-      router.push(
-        `/login/verify?email=${encodeURIComponent(email.trim())}&redirect=${encodeURIComponent(safeRedirect)}`
-      );
+      await sendOTP(trimmedEmail);
+      router.push(buildVerifyUrl(trimmedEmail, safeRedirect));
     } catch (err: unknown) {
-      const error = err as { response?: { status: number } };
-      if (error?.response?.status === 400) {
+      const apiError = await parseApiError(err);
+      if (apiError.status === 400 && apiError.code === SIGNIN_EMAIL_SENT_CODE) {
         toast.info('Code already sent, check your email');
-        router.push(
-          `/login/verify?email=${encodeURIComponent(email.trim())}&redirect=${encodeURIComponent(safeRedirect)}`
-        );
+        router.push(buildVerifyUrl(trimmedEmail, safeRedirect));
       } else {
         toast.error('Failed to send code. Please try again.');
       }

@@ -3,6 +3,11 @@ import { buildLoginRedirect, getCurrentPathWithSearch } from '@/lib/funnel';
 
 const TOKEN_KEY = 'dance_auth_token';
 
+export interface ApiErrorInfo {
+  status?: number;
+  code?: string;
+}
+
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null;
   return localStorage.getItem(TOKEN_KEY);
@@ -14,6 +19,23 @@ export function setToken(token: string): void {
 
 export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY);
+}
+
+export async function parseApiError(error: unknown): Promise<ApiErrorInfo> {
+  const response = (error as { response?: Response })?.response;
+  if (!response) return {};
+
+  let code: string | undefined;
+  try {
+    const body = (await response.clone().json()) as { code?: unknown };
+    if (typeof body.code === 'string') {
+      code = body.code;
+    }
+  } catch {
+    // The response body is best-effort metadata for UI handling and analytics.
+  }
+
+  return { status: response.status, code };
 }
 
 function createApiClient(baseUrl: string) {
