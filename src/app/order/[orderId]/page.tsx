@@ -45,8 +45,10 @@ function OrderContent() {
 
   const isWorking = useMemo(() => {
     const status = (order?.status || '').toLowerCase();
-    return !status || ['created', 'pending', 'processing', 'queued', 'submitted'].includes(status);
-  }, [order?.status]);
+    const awaitingPreview =
+      ['completed', 'unlocked'].includes(status) && !order?.previewVideoUrl && !order?.originalVideoUrl;
+    return !status || awaitingPreview || ['created', 'pending', 'processing', 'queued', 'submitted'].includes(status);
+  }, [order?.originalVideoUrl, order?.previewVideoUrl, order?.status]);
 
   const loadOrder = useCallback(async () => {
     if (!orderId || !token) {
@@ -144,6 +146,10 @@ function OrderContent() {
 
   const completed = ['completed', 'unlocked'].includes(order.status);
   const failed = order.status === 'failed';
+  const displayVideoUrl = order.previewVideoUrl || (order.unlocked ? order.originalVideoUrl : null);
+  const previewReady = Boolean(order.previewVideoUrl);
+  const originalReady = Boolean(order.unlocked && order.originalVideoUrl);
+  const awaitingWatermark = !failed && !displayVideoUrl && (order.progress || 0) >= 100;
 
   return (
     <div className="min-h-screen bg-dark-gradient text-white">
@@ -153,7 +159,15 @@ function OrderContent() {
             Dance Like Me
           </p>
           <h1 className="text-[22px] font-bold leading-[1.15] tracking-tight">
-            {failed ? 'Generation failed' : completed ? 'Your preview is ready' : 'Creating your preview'}
+            {failed
+              ? 'Generation failed'
+              : displayVideoUrl
+                ? order.unlocked
+                  ? 'Your video is ready'
+                  : 'Your preview is ready'
+                : awaitingWatermark
+                  ? 'Preparing your preview'
+                  : 'Creating your preview'}
           </h1>
           <p className="mt-2 text-[13px] text-white/45">
             We will send the video link to {order.email}.
@@ -166,10 +180,10 @@ function OrderContent() {
               We could not finish this video. Please try again or contact support.
             </p>
           </div>
-        ) : order.previewVideoUrl ? (
+        ) : displayVideoUrl ? (
           <div className="mb-5 overflow-hidden rounded-2xl bg-black shadow-2xl">
             <video
-              src={order.previewVideoUrl}
+              src={displayVideoUrl}
               controls
               playsInline
               autoPlay
@@ -182,8 +196,14 @@ function OrderContent() {
         ) : (
           <div className="mb-6 flex min-h-[420px] flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-8 text-center">
             <div className="mb-5 h-12 w-12 animate-spin rounded-full border-2 border-purple-500 border-t-transparent" />
-            <p className="text-[15px] font-medium">Generating your video</p>
-            <p className="mt-1 text-[13px] text-white/45">This can take more than 10 minutes.</p>
+            <p className="text-[15px] font-medium">
+              {awaitingWatermark ? 'Preparing your watermarked preview' : 'Generating your video'}
+            </p>
+            <p className="mt-1 text-[13px] text-white/45">
+              {awaitingWatermark
+                ? 'The video finished processing. We are waiting for the preview link.'
+                : 'This can take more than 10 minutes.'}
+            </p>
             <div className="mt-7 w-full max-w-[240px]">
               <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
                 <div
@@ -196,15 +216,19 @@ function OrderContent() {
           </div>
         )}
 
-        {!failed && completed ? (
+        {!failed && completed && (previewReady || originalReady) ? (
           <div className="space-y-2.5">
-            <Button variant="outline" size="lg" className="w-full border-white/15 bg-white/[0.04] text-white hover:bg-white/[0.08]" onClick={() => handleDownload('preview')}>
-              Open Watermarked Preview
-            </Button>
-            {order.unlocked ? (
-              <Button variant="glow" size="lg" className="w-full" onClick={() => handleDownload('original')}>
-                Open Original Video
+            {previewReady ? (
+              <Button variant="outline" size="lg" className="w-full border-white/15 bg-white/[0.04] text-white hover:bg-white/[0.08]" onClick={() => handleDownload('preview')}>
+                Open Watermarked Preview
               </Button>
+            ) : null}
+            {order.unlocked ? (
+              originalReady ? (
+                <Button variant="glow" size="lg" className="w-full" onClick={() => handleDownload('original')}>
+                  Open Original Video
+                </Button>
+              ) : null
             ) : (
               <Button variant="glow" size="lg" className="w-full" isLoading={isUnlocking} onClick={handleUnlock}>
                 Get Original for $1.99

@@ -20,6 +20,7 @@ export interface TkAdsOrder {
 }
 
 export interface ToolVideo {
+  url?: string | null;
   video_url?: string | null;
   videoUrl?: string | null;
   watermark_url?: string | null;
@@ -36,6 +37,7 @@ export interface ToolTaskStatus {
   template_id?: string | null;
   templateId?: string | null;
   videos?: ToolVideo[];
+  outputs?: ToolVideo[];
 }
 
 export class UpstreamApiError extends Error {
@@ -178,8 +180,9 @@ export function resolveVideoUrls(task: ToolTaskStatus | null): {
   previewVideoUrl: string | null;
   originalVideoUrl: string | null;
 } {
-  const video = task?.videos?.[0];
-  const originalVideoUrl = video?.video_url || video?.videoUrl || null;
+  const videos = task?.videos?.length ? task.videos : task?.outputs;
+  const video = videos?.[0];
+  const originalVideoUrl = video?.video_url || video?.videoUrl || video?.url || null;
   const previewVideoUrl = video?.watermark_url || video?.watermarkUrl || null;
   return { previewVideoUrl, originalVideoUrl };
 }

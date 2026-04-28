@@ -37,8 +37,10 @@ export async function GET(
       previewVideoUrl = urls.previewVideoUrl;
       originalVideoUrl = order.unlocked ? urls.originalVideoUrl : null;
 
-      if (taskState === 'completed') {
+      if (taskState === 'completed' && previewVideoUrl) {
         order = await completeGuestOrder(orderId, token);
+      } else if (taskState === 'completed' && !previewVideoUrl && !order.unlocked) {
+        taskState = 'processing';
       } else if (taskState === 'failed') {
         order = await failGuestOrder(orderId, token, 'Generation failed');
       }
