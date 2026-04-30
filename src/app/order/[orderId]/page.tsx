@@ -44,11 +44,14 @@ function OrderContent() {
   const notifiedReturnRef = useRef(false);
 
   const buildVideoUrl = useCallback(
-    (variant: 'preview' | 'original') => {
+    (variant: 'preview' | 'original', mode?: 'stream') => {
       const query = new URLSearchParams({
         token,
         variant,
       });
+      if (mode) {
+        query.set('mode', mode);
+      }
       return `/api/orders/${encodeURIComponent(orderId)}/download?${query.toString()}`;
     },
     [orderId, token]
@@ -162,7 +165,7 @@ function OrderContent() {
     : order.unlocked && order.originalVideoUrl
       ? 'original'
       : null;
-  const displayVideoUrl = displayVariant ? buildVideoUrl(displayVariant) : null;
+  const displayVideoUrl = displayVariant ? buildVideoUrl(displayVariant, 'stream') : null;
   const previewReady = Boolean(order.previewVideoUrl);
   const originalReady = Boolean(order.unlocked && order.originalVideoUrl);
   const awaitingWatermark = !failed && !displayVideoUrl && (order.progress || 0) >= 100;
@@ -209,11 +212,8 @@ function OrderContent() {
               src={displayVideoUrl}
               controls
               playsInline
-              autoPlay
-              muted
-              loop
-              preload="metadata"
-              className="w-full aspect-[9/16]"
+              preload="auto"
+              className="w-full aspect-[9/16] bg-black object-contain"
             >
               <track kind="captions" />
             </video>
