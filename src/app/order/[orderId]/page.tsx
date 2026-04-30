@@ -44,14 +44,11 @@ function OrderContent() {
   const notifiedReturnRef = useRef(false);
 
   const buildVideoUrl = useCallback(
-    (variant: 'preview' | 'original', mode?: 'stream') => {
+    (variant: 'preview' | 'original') => {
       const query = new URLSearchParams({
         token,
         variant,
       });
-      if (mode) {
-        query.set('mode', mode);
-      }
       return `/api/orders/${encodeURIComponent(orderId)}/download?${query.toString()}`;
     },
     [orderId, token]
@@ -165,7 +162,7 @@ function OrderContent() {
     : order.unlocked && order.originalVideoUrl
       ? 'original'
       : null;
-  const displayVideoUrl = displayVariant ? buildVideoUrl(displayVariant, 'stream') : null;
+  const displayVideoUrl = order.previewVideoUrl || (order.unlocked ? order.originalVideoUrl : null);
   const openVideoLabel = displayVariant === 'original' ? 'Open original video' : 'Open watermarked preview';
   const previewReady = Boolean(order.previewVideoUrl);
   const originalReady = Boolean(order.unlocked && order.originalVideoUrl);
@@ -218,7 +215,9 @@ function OrderContent() {
               src={displayVideoUrl}
               playsInline
               muted
-              preload="metadata"
+              autoPlay
+              loop
+              preload="auto"
               className="aspect-[9/16] w-full bg-black object-contain pointer-events-none"
             >
               <track kind="captions" />

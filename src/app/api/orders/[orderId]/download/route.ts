@@ -9,47 +9,6 @@ import {
 
 export const runtime = 'nodejs';
 
-async function streamVideo(url: string, req: NextRequest) {
-  const range = req.headers.get('range');
-  const upstream = await fetch(url, {
-    headers: range ? { Range: range } : undefined,
-    cache: 'no-store',
-  });
-
-  const headers = new Headers();
-  const passthroughHeaders = [
-    'accept-ranges',
-    'content-length',
-    'content-range',
-    'content-type',
-    'etag',
-    'last-modified',
-  ];
-
-  for (const headerName of passthroughHeaders) {
-    const value = upstream.headers.get(headerName);
-    if (value) {
-      headers.set(headerName, value);
-    }
-  }
-
-  if (!headers.has('accept-ranges')) {
-    headers.set('Accept-Ranges', 'bytes');
-  }
-  if (!headers.has('content-type')) {
-    headers.set('Content-Type', 'video/mp4');
-  }
-
-  headers.set('Cache-Control', 'private, no-store');
-  headers.set('Content-Disposition', 'inline');
-  headers.set('Referrer-Policy', 'no-referrer');
-
-  return new NextResponse(upstream.body, {
-    status: upstream.status,
-    headers,
-  });
-}
-
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ orderId: string }> }
@@ -80,10 +39,6 @@ export async function GET(
     const url = variant === 'original' ? originalVideoUrl : previewVideoUrl;
     if (!url) {
       return NextResponse.json({ error: 'Requested video is unavailable' }, { status: 404 });
-    }
-
-    if (req.nextUrl.searchParams.get('mode') === 'stream') {
-      return streamVideo(url, req);
     }
 
     const response = NextResponse.redirect(url);
