@@ -255,11 +255,6 @@ function OrderContent() {
 
         {!failed && completed && (previewReady || originalReady) ? (
           <div className="space-y-2.5">
-            {previewReady ? (
-              <Button variant="outline" size="lg" className="w-full border-white/15 bg-white/[0.04] text-white hover:bg-white/[0.08]" onClick={() => handleDownload('preview')}>
-                Open Watermarked Preview
-              </Button>
-            ) : null}
             {order.unlocked ? (
               originalReady ? (
                 <Button variant="glow" size="lg" className="w-full" onClick={() => handleDownload('original')}>
