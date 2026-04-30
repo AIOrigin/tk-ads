@@ -2,16 +2,29 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
+import templates from '@/data/templates.json';
+import type { Template } from '@/types/template';
+import { isCreateInputMode } from '@/types/create';
+import {
+  PENDING_CHARACTER_ID_KEY,
+  PENDING_INPUT_MODE_KEY,
+  PENDING_TEMPLATE_KEY,
+} from '@/lib/funnel';
+
+const allTemplates = templates as Template[];
 
 interface OrderState {
   orderId: string;
   status: string;
   progress: number;
   taskId: string | null;
+  templateId: string;
   templateName: string | null;
+  characterId: string | null;
+  inputMode: string | null;
   email: string;
   unlocked: boolean;
   previewEmailSentAt: string | null;
@@ -31,6 +44,7 @@ function OrderLoading() {
 
 function OrderContent() {
   const params = useParams();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const orderId = params.orderId as string;
   const token = searchParams.get('token') || '';
@@ -141,6 +155,23 @@ function OrderContent() {
     window.location.href = buildVideoUrl(variant);
   }
 
+  function handleTryAnotherLook() {
+    if (order) {
+      const template = allTemplates.find((item) => item.id === order.templateId);
+      if (template) {
+        localStorage.setItem(PENDING_TEMPLATE_KEY, JSON.stringify(template));
+      }
+      if (order.characterId) {
+        localStorage.setItem(PENDING_CHARACTER_ID_KEY, order.characterId);
+      }
+      if (isCreateInputMode(order.inputMode)) {
+        localStorage.setItem(PENDING_INPUT_MODE_KEY, order.inputMode);
+      }
+    }
+
+    router.push('/?resume=1');
+  }
+
   if (error) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-dark-gradient px-8 text-center text-white">
@@ -209,7 +240,7 @@ function OrderContent() {
               type="button"
               aria-label={openVideoLabel}
               onClick={() => handleDownload(displayVariant)}
-              className="group relative aspect-[9/16] h-full max-h-[58dvh] max-w-full overflow-hidden rounded-[22px] bg-black text-left shadow-2xl"
+              className="group relative aspect-[9/16] h-full max-h-[52dvh] max-w-full overflow-hidden rounded-[22px] bg-black text-left shadow-2xl"
             >
               <video
                 key={displayVideoUrl}
@@ -268,6 +299,14 @@ function OrderContent() {
                 Get Original for $1.99
               </Button>
             )}
+            <Button
+              variant="secondary"
+              size="md"
+              className="h-10 w-full rounded-[16px] border border-white/10 bg-white/[0.06] text-[13px] text-white hover:bg-white/[0.1] active:bg-white/[0.14]"
+              onClick={handleTryAnotherLook}
+            >
+              Try another look
+            </Button>
             {order.unlocked ? (
               <p className="px-2 pt-1 text-center text-[12px] text-white/40">
                 The original link will also be sent to your email.

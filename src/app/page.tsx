@@ -1048,8 +1048,6 @@ function HomeContent() {
       }));
 
       localStorage.setItem(DELIVERY_EMAIL_KEY, normalizedEmail);
-      clearPendingDraft();
-      await clearPhotoDB();
       setPaidTemplateRecovered(false);
       router.replace(`/order/${result.orderId}?token=${encodeURIComponent(result.token)}`);
     } catch (error) {
