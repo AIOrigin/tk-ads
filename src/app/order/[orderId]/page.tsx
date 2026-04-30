@@ -150,6 +150,7 @@ function OrderContent() {
   const previewReady = Boolean(order.previewVideoUrl);
   const originalReady = Boolean(order.unlocked && order.originalVideoUrl);
   const awaitingWatermark = !failed && !displayVideoUrl && (order.progress || 0) >= 100;
+  const previewInProgress = !failed && !displayVideoUrl;
 
   return (
     <div className="min-h-screen bg-dark-gradient text-white">
@@ -165,12 +166,17 @@ function OrderContent() {
                 ? order.unlocked
                   ? 'Your video is ready'
                   : 'Your preview is ready'
-                : awaitingWatermark
-                  ? 'Preparing your preview'
-                  : 'Creating your preview'}
+                : 'Your preview is being created'}
           </h1>
           <p className="mt-2 text-[13px] text-white/45">
-            We will send the video link to {order.email}.
+            {previewInProgress ? (
+              <>
+                We&apos;ll email the video link to {order.email}{' '}
+                when it&apos;s ready. This usually takes 10 minutes or more.
+              </>
+            ) : (
+              <>We will send the video link to {order.email}.</>
+            )}
           </p>
         </div>
 
@@ -202,7 +208,7 @@ function OrderContent() {
             <p className="mt-1 text-[13px] text-white/45">
               {awaitingWatermark
                 ? 'The video finished processing. We are waiting for the preview link.'
-                : 'This can take more than 10 minutes.'}
+                : 'You can close this page. We will keep working.'}
             </p>
             <div className="mt-7 w-full max-w-[240px]">
               <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
