@@ -170,13 +170,13 @@ function OrderContent() {
   const previewInProgress = !failed && !displayVideoUrl;
 
   return (
-    <div className="min-h-screen bg-dark-gradient text-white">
-      <div className="mx-auto max-w-lg px-5 pb-10 pt-6">
-        <div className="mb-5 px-1">
+    <div className="h-[100dvh] overflow-hidden bg-dark-gradient text-white">
+      <div className="mx-auto flex h-[100dvh] max-w-lg flex-col px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-[max(12px,env(safe-area-inset-top))] sm:px-5 sm:pt-6">
+        <div className="mb-3 shrink-0 px-1">
           <p className="mb-1 text-[11px] font-medium uppercase tracking-wider text-white/35">
             Dance Like Me
           </p>
-          <h1 className="text-[22px] font-bold leading-[1.15] tracking-tight">
+          <h1 className="text-[21px] font-bold leading-[1.12] tracking-tight sm:text-[22px]">
             {failed
               ? 'Generation failed'
               : displayVideoUrl
@@ -185,7 +185,7 @@ function OrderContent() {
                   : 'Your preview is ready'
                 : 'Your preview is being created'}
           </h1>
-          <p className="mt-2 text-[13px] text-white/45">
+          <p className="mt-1.5 text-[12px] leading-[1.35] text-white/45 sm:text-[13px]">
             {previewInProgress ? (
               <>
                 We&apos;ll email the video link to {order.email}{' '}
@@ -198,40 +198,42 @@ function OrderContent() {
         </div>
 
         {failed ? (
-          <div className="rounded-2xl border border-red-400/20 bg-red-500/10 p-5 text-center">
+          <div className="mb-3 flex min-h-0 flex-1 items-center justify-center rounded-2xl border border-red-400/20 bg-red-500/10 p-5 text-center">
             <p className="text-[14px] text-red-100">
               We could not finish this video. Please try again or contact support.
             </p>
           </div>
         ) : displayVideoUrl && displayVariant ? (
-          <button
-            type="button"
-            aria-label={openVideoLabel}
-            onClick={() => handleDownload(displayVariant)}
-            className="group relative mb-5 block w-full overflow-hidden rounded-2xl bg-black text-left shadow-2xl"
-          >
-            <video
-              key={displayVideoUrl}
-              src={displayVideoUrl}
-              playsInline
-              muted
-              autoPlay
-              loop
-              preload="auto"
-              className="aspect-[9/16] w-full bg-black object-contain pointer-events-none"
+          <div className="mb-3 flex min-h-0 flex-1 items-center justify-center">
+            <button
+              type="button"
+              aria-label={openVideoLabel}
+              onClick={() => handleDownload(displayVariant)}
+              className="group relative aspect-[9/16] h-full max-h-[58dvh] max-w-full overflow-hidden rounded-[22px] bg-black text-left shadow-2xl"
             >
-              <track kind="captions" />
-            </video>
-            <div className="absolute inset-0 flex items-center justify-center bg-black/10 transition group-active:bg-black/20">
-              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-black/55 ring-1 ring-white/25 backdrop-blur-sm">
-                <svg aria-hidden="true" className="ml-1 h-8 w-8 text-white" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-              </span>
-            </div>
-          </button>
+              <video
+                key={displayVideoUrl}
+                src={displayVideoUrl}
+                playsInline
+                muted
+                autoPlay
+                loop
+                preload="auto"
+                className="h-full w-full bg-black object-cover pointer-events-none"
+              >
+                <track kind="captions" />
+              </video>
+              <div className="absolute inset-0 flex items-center justify-center bg-black/10 transition group-active:bg-black/20">
+                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-black/55 ring-1 ring-white/25 backdrop-blur-sm sm:h-16 sm:w-16">
+                  <svg aria-hidden="true" className="ml-1 h-7 w-7 text-white sm:h-8 sm:w-8" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </span>
+              </div>
+            </button>
+          </div>
         ) : (
-          <div className="mb-6 flex min-h-[420px] flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-8 text-center">
+          <div className="mb-3 flex min-h-0 flex-1 flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-8 text-center">
             <div className="mb-5 h-12 w-12 animate-spin rounded-full border-2 border-purple-500 border-t-transparent" />
             <p className="text-[15px] font-medium">
               {awaitingWatermark ? 'Preparing your watermarked preview' : 'Generating your video'}
@@ -254,15 +256,15 @@ function OrderContent() {
         )}
 
         {!failed && completed && (previewReady || originalReady) ? (
-          <div className="space-y-2.5">
+          <div className="shrink-0 space-y-2 px-1">
             {order.unlocked ? (
               originalReady ? (
-                <Button variant="glow" size="lg" className="w-full" onClick={() => handleDownload('original')}>
+                <Button variant="glow" size="lg" className="h-12 w-full rounded-[20px] text-[15px]" onClick={() => handleDownload('original')}>
                   Open Original Video
                 </Button>
               ) : null
             ) : (
-              <Button variant="glow" size="lg" className="w-full" isLoading={isUnlocking} onClick={handleUnlock}>
+              <Button variant="glow" size="lg" className="h-12 w-full rounded-[20px] text-[15px]" isLoading={isUnlocking} onClick={handleUnlock}>
                 Get Original for $1.99
               </Button>
             )}
