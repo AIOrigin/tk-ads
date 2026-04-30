@@ -166,6 +166,7 @@ function OrderContent() {
       ? 'original'
       : null;
   const displayVideoUrl = displayVariant ? buildVideoUrl(displayVariant, 'stream') : null;
+  const openVideoLabel = displayVariant === 'original' ? 'Open original video' : 'Open watermarked preview';
   const previewReady = Boolean(order.previewVideoUrl);
   const originalReady = Boolean(order.unlocked && order.originalVideoUrl);
   const awaitingWatermark = !failed && !displayVideoUrl && (order.progress || 0) >= 100;
@@ -205,19 +206,31 @@ function OrderContent() {
               We could not finish this video. Please try again or contact support.
             </p>
           </div>
-        ) : displayVideoUrl ? (
-          <div className="mb-5 overflow-hidden rounded-2xl bg-black shadow-2xl">
+        ) : displayVideoUrl && displayVariant ? (
+          <button
+            type="button"
+            aria-label={openVideoLabel}
+            onClick={() => handleDownload(displayVariant)}
+            className="group relative mb-5 block w-full overflow-hidden rounded-2xl bg-black text-left shadow-2xl"
+          >
             <video
               key={displayVideoUrl}
               src={displayVideoUrl}
-              controls
               playsInline
-              preload="auto"
-              className="w-full aspect-[9/16] bg-black object-contain"
+              muted
+              preload="metadata"
+              className="aspect-[9/16] w-full bg-black object-contain pointer-events-none"
             >
               <track kind="captions" />
             </video>
-          </div>
+            <div className="absolute inset-0 flex items-center justify-center bg-black/10 transition group-active:bg-black/20">
+              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-black/55 ring-1 ring-white/25 backdrop-blur-sm">
+                <svg aria-hidden="true" className="ml-1 h-8 w-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </span>
+            </div>
+          </button>
         ) : (
           <div className="mb-6 flex min-h-[420px] flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-8 text-center">
             <div className="mb-5 h-12 w-12 animate-spin rounded-full border-2 border-purple-500 border-t-transparent" />
