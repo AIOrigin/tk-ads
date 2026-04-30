@@ -43,6 +43,17 @@ function OrderContent() {
   const openedDownloadRef = useRef(false);
   const notifiedReturnRef = useRef(false);
 
+  const buildVideoUrl = useCallback(
+    (variant: 'preview' | 'original') => {
+      const query = new URLSearchParams({
+        token,
+        variant,
+      });
+      return `/api/orders/${encodeURIComponent(orderId)}/download?${query.toString()}`;
+    },
+    [orderId, token]
+  );
+
   const isWorking = useMemo(() => {
     const status = (order?.status || '').toLowerCase();
     const awaitingPreview =
@@ -99,13 +110,13 @@ function OrderContent() {
     const variant = shouldDownload === 'original' ? 'original' : 'preview';
     if (variant === 'preview' && order.previewVideoUrl) {
       openedDownloadRef.current = true;
-      window.location.href = `/api/orders/${encodeURIComponent(orderId)}/download?token=${encodeURIComponent(token)}&variant=preview`;
+      window.location.href = buildVideoUrl('preview');
     }
     if (variant === 'original' && order.unlocked && order.originalVideoUrl) {
       openedDownloadRef.current = true;
-      window.location.href = `/api/orders/${encodeURIComponent(orderId)}/download?token=${encodeURIComponent(token)}&variant=original`;
+      window.location.href = buildVideoUrl('original');
     }
-  }, [order, orderId, shouldDownload, token]);
+  }, [buildVideoUrl, order, shouldDownload]);
 
   async function handleUnlock() {
     setIsUnlocking(true);
@@ -127,7 +138,7 @@ function OrderContent() {
   }
 
   function handleDownload(variant: 'preview' | 'original') {
-    window.location.href = `/api/orders/${encodeURIComponent(orderId)}/download?token=${encodeURIComponent(token)}&variant=${variant}`;
+    window.location.href = buildVideoUrl(variant);
   }
 
   if (error) {
@@ -146,7 +157,12 @@ function OrderContent() {
 
   const completed = ['completed', 'unlocked'].includes(order.status);
   const failed = order.status === 'failed';
-  const displayVideoUrl = order.previewVideoUrl || (order.unlocked ? order.originalVideoUrl : null);
+  const displayVariant = order.previewVideoUrl
+    ? 'preview'
+    : order.unlocked && order.originalVideoUrl
+      ? 'original'
+      : null;
+  const displayVideoUrl = displayVariant ? buildVideoUrl(displayVariant) : null;
   const previewReady = Boolean(order.previewVideoUrl);
   const originalReady = Boolean(order.unlocked && order.originalVideoUrl);
   const awaitingWatermark = !failed && !displayVideoUrl && (order.progress || 0) >= 100;
@@ -189,11 +205,14 @@ function OrderContent() {
         ) : displayVideoUrl ? (
           <div className="mb-5 overflow-hidden rounded-2xl bg-black shadow-2xl">
             <video
+              key={displayVideoUrl}
               src={displayVideoUrl}
               controls
               playsInline
               autoPlay
+              muted
               loop
+              preload="metadata"
               className="w-full aspect-[9/16]"
             >
               <track kind="captions" />

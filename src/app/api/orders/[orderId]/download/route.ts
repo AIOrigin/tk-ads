@@ -41,7 +41,10 @@ export async function GET(
       return NextResponse.json({ error: 'Requested video is unavailable' }, { status: 404 });
     }
 
-    return NextResponse.redirect(url);
+    const response = NextResponse.redirect(url);
+    response.headers.set('Cache-Control', 'private, no-store');
+    response.headers.set('Referrer-Policy', 'no-referrer');
+    return response;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to open video';
     const status = error instanceof UpstreamApiError ? error.status : 500;
