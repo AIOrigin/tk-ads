@@ -1,15 +1,18 @@
-import Stripe from 'stripe';
 import { NextRequest, NextResponse } from 'next/server';
 import { getBaseUrl } from '@/lib/server/base-url';
 import { getCurrentUserFromAuthHeader } from '@/lib/server/current-user';
 import { sendTikTokEvent, extractTikTokContext } from '@/lib/server/tiktok-events';
+import { getStripeClient } from '@/lib/server/stripe-client';
 
 export const runtime = 'nodejs';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!.trim());
-
 export async function POST(req: NextRequest) {
   try {
+    const stripe = getStripeClient();
+    if (!stripe) {
+      return NextResponse.json({ error: 'Stripe is not configured' }, { status: 500 });
+    }
+
     const authHeader = req.headers.get('Authorization');
     const currentUser = await getCurrentUserFromAuthHeader(authHeader);
 

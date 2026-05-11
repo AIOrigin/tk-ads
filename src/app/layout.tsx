@@ -7,11 +7,11 @@ import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { PostHogProvider } from '@/components/PostHogProvider';
 
 export const metadata: Metadata = {
-  title: 'Dance Like Me — Create Your Own Dance Video',
+  title: 'Create Your Own Dance Video',
   description:
     'Upload a selfie and create your own AI dance video. Choose from trending dance styles.',
   openGraph: {
-    title: 'Dance Like Me — Create Your Own Dance Video',
+    title: 'Create Your Own Dance Video',
     description: 'Upload a selfie. Pick a dance. Get your video in 1 minute.',
     type: 'website',
     images: ['/og-image.png'],

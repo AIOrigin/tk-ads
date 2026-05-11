@@ -1,17 +1,15 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect, Suspense } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo, Suspense, type FormEvent } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { useCreateStore } from '@/lib/store/create-store';
-import { useAuthStore } from '@/lib/store/auth-store';
-import { PhotoUploader, type PhotoUploaderHandle } from '@/components/create/PhotoUploader';
+import { PhotoUploader } from '@/components/create/PhotoUploader';
 import { PresetCharacterSelector } from '@/components/create/PresetCharacterSelector';
 import { Button } from '@/components/ui/Button';
+import { BottomSheet } from '@/components/ui/BottomSheet';
 import { toast } from '@/components/ui/Toast';
 import { getToken } from '@/lib/api/client';
-import { getCredits, getTotalCredits } from '@/lib/api/user-api';
 import { trackEvent, generateEventId, getTikTokClickId, getTikTokTtp } from '@/lib/analytics';
 import templates from '@/data/templates.json';
 import {
@@ -39,11 +37,11 @@ import {
   PHOTO_STORE,
   type SavedVideo,
 } from '@/lib/funnel';
-import { AuthModal } from '@/components/auth/AuthModal';
 
 const allTemplates = templates as Template[];
 const defaultPresetCharacter = getPresetCharacterById(DEFAULT_PRESET_CHARACTER_ID) ?? presetCharacters[0];
 const PAYMENT_EVENT_IDS_KEY = 'dance_payment_event_ids';
+const DELIVERY_EMAIL_KEY = 'dance_delivery_email';
 
 interface CheckoutSessionInfo {
   sessionId: string;
@@ -163,6 +161,10 @@ function buildFunnelEventProps({
   };
 }
 
+function isValidDeliveryEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+}
+
 function shuffleTemplates(items: Template[]): Template[] {
   const shuffled = [...items];
 
@@ -172,6 +174,73 @@ function shuffleTemplates(items: Template[]): Template[] {
   }
 
   return shuffled;
+}
+
+function DeliveryEmailSheet({
+  isOpen,
+  email,
+  isSubmitting,
+  onClose,
+  onEmailChange,
+  onSubmit,
+}: {
+  isOpen: boolean;
+  email: string;
+  isSubmitting: boolean;
+  onClose: () => void;
+  onEmailChange: (email: string) => void;
+  onSubmit: (email: string) => void;
+}) {
+  const trimmedEmail = email.trim().toLowerCase();
+  const canSubmit = isValidDeliveryEmail(trimmedEmail) && !isSubmitting;
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canSubmit) return;
+    onSubmit(trimmedEmail);
+  }
+
+  return (
+    <BottomSheet isOpen={isOpen} onClose={onClose}>
+      <form onSubmit={handleSubmit} className="space-y-5 pb-1">
+        <div>
+          <h2 className="text-[22px] font-bold tracking-tight text-white">
+            Where should we send your video?
+          </h2>
+          <p className="mt-2 text-[14px] leading-5 text-white/55">
+            We&apos;ll email your free watermarked preview here. If you unlock the original, we&apos;ll send that link too.
+          </p>
+        </div>
+
+        <label className="block">
+          <span className="mb-2 block text-[12px] font-semibold uppercase tracking-[0.16em] text-white/35">
+            Delivery email
+          </span>
+          <input
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            autoFocus
+            value={email}
+            onChange={(event) => onEmailChange(event.target.value)}
+            placeholder="you@example.com"
+            className="h-14 w-full rounded-2xl border border-white/10 bg-white/[0.07] px-4 text-[16px] font-medium text-white outline-none transition focus:border-purple-300/60 focus:bg-white/[0.1]"
+          />
+        </label>
+
+        <Button
+          type="submit"
+          variant="glow"
+          size="lg"
+          className="h-14 w-full rounded-2xl text-[16px]"
+          disabled={!canSubmit}
+          isLoading={isSubmitting}
+        >
+          Start generating
+        </Button>
+      </form>
+    </BottomSheet>
+  );
 }
 
 function DanceSelector({
@@ -184,8 +253,8 @@ function DanceSelector({
   onSelect: (t: Template) => void;
 }) {
   return (
-    <div className="mb-5 px-1">
-      <div className="mb-2.5 flex items-center gap-2 px-1">
+    <div className="mb-3 shrink-0 px-1">
+      <div className="mb-2 flex items-center gap-2 px-1">
         <span className="flex h-5 w-5 items-center justify-center rounded-full bg-purple-500/20 text-[11px] font-bold text-purple-200">
           1
         </span>
@@ -194,7 +263,7 @@ function DanceSelector({
         </p>
       </div>
       <div
-        className="scrollbar-hide -mx-3 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-3 py-4"
+        className="scrollbar-hide -mx-4 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-4 py-2.5"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         {templates.map((t) => {
@@ -204,7 +273,7 @@ function DanceSelector({
               type="button"
               key={t.id}
               onClick={() => onSelect(t)}
-              className={`w-[88px] flex-shrink-0 snap-start text-left transition-all duration-200 ${
+              className={`w-[72px] flex-shrink-0 snap-start text-left transition-all duration-200 min-[390px]:w-[78px] sm:w-[88px] ${
                 isActive ? 'opacity-100' : 'opacity-60'
               }`}
             >
@@ -235,6 +304,70 @@ function DanceSelector({
         })}
       </div>
     </div>
+  );
+}
+
+function CompactCharacterSummary({
+  character,
+  inputMode,
+  photoPreviewUrl,
+  hasSavedPhoto,
+  isPaidRecovered,
+  onChange,
+}: {
+  character: PresetCharacter;
+  inputMode: CreateInputMode;
+  photoPreviewUrl: string | null;
+  hasSavedPhoto: boolean;
+  isPaidRecovered: boolean;
+  onChange: () => void;
+}) {
+  const isUpload = inputMode === 'upload';
+  const imageUrl = isUpload ? photoPreviewUrl : character.imageUrl;
+  const label = isUpload ? 'Photo' : 'Character';
+  const name = isUpload ? (hasSavedPhoto ? 'Uploaded photo' : 'My photo') : character.name;
+  const status = isPaidRecovered ? 'Payment confirmed' : hasSavedPhoto && !isUpload ? 'Saved photo available' : 'Ready';
+
+  return (
+    <button
+      type="button"
+      onClick={onChange}
+      className="group flex h-[clamp(104px,19dvh,132px)] w-full items-center gap-3 overflow-hidden rounded-[22px] border border-white/10 bg-[radial-gradient(circle_at_top_left,_rgba(168,85,247,0.2),_transparent_38%),linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.025))] p-3 text-left shadow-[0_14px_38px_rgba(0,0,0,0.26)] transition-all active:scale-[0.99]"
+    >
+      <div className={`relative h-[clamp(82px,15dvh,106px)] flex-shrink-0 overflow-hidden rounded-xl bg-white/[0.06] ring-1 ring-white/10 ${isUpload ? 'w-[clamp(68px,20vw,92px)]' : 'aspect-[9/16]'}`}>
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={isUpload ? 'Selected upload preview' : character.name}
+            loading="lazy"
+            decoding="async"
+            className={`h-full w-full ${isUpload ? 'object-cover object-center' : 'object-contain object-center'}`}
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-white/[0.04] text-white/35">
+            <svg aria-hidden="true" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+            </svg>
+          </div>
+        )}
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-semibold uppercase text-white/35">
+          {label}
+        </p>
+        <p className="mt-1 truncate text-[18px] font-bold leading-tight text-white">
+          {name}
+        </p>
+        <p className="mt-1 truncate text-[12px] font-medium text-white/38">
+          {status}
+        </p>
+      </div>
+
+      <span className="rounded-full bg-white/[0.08] px-3 py-2 text-[12px] font-semibold text-purple-200 ring-1 ring-white/10 transition group-active:bg-white/[0.12]">
+        Change
+      </span>
+    </button>
   );
 }
 
@@ -289,7 +422,7 @@ function InputModeToggle({
 }) {
   return (
     <div className="mb-3 grid grid-cols-2 gap-1 rounded-2xl bg-white/[0.04] p-1">
-      {(['preset', 'upload'] as CreateInputMode[]).map((mode) => {
+      {(['upload', 'preset'] as CreateInputMode[]).map((mode) => {
         const isActive = inputMode === mode;
         const label = mode === 'preset' ? 'Character' : 'My Photo';
 
@@ -312,70 +445,21 @@ function InputModeToggle({
   );
 }
 
-function SelectedCharacterSummary({
-  character,
-  actionLabel,
-  onAction,
-}: {
-  character: PresetCharacter;
-  actionLabel?: string;
-  onAction?: () => void;
-}) {
-  return (
-    <div className="overflow-hidden rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top,_rgba(168,85,247,0.18),_transparent_45%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] shadow-[0_18px_50px_rgba(0,0,0,0.3)]">
-      <div className="relative aspect-[4/3] overflow-hidden">
-        <img
-          src={character.imageUrl}
-          alt={`${character.name} blurred backdrop`}
-          aria-hidden="true"
-          loading="lazy"
-          decoding="async"
-          className="absolute inset-0 h-full w-full scale-110 object-cover blur-3xl brightness-[0.38]"
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-transparent to-black/65" />
-        <div className="absolute inset-0 z-[1] flex items-start justify-center px-4 pb-1 pt-5">
-          <img
-            src={character.imageUrl}
-            alt={character.name}
-            loading="lazy"
-            decoding="async"
-            className="h-[96%] w-auto max-w-full rounded-[22px] object-contain drop-shadow-[0_20px_40px_rgba(0,0,0,0.45)]"
-          />
-        </div>
-      </div>
-      <div className="px-4 pb-3.5 pt-2.5">
-        <p className="truncate text-[10px] font-medium uppercase tracking-[0.28em] text-white/28">
-          {character.name}
-        </p>
-        {actionLabel && onAction ? (
-          <button
-            type="button"
-            onClick={onAction}
-            className="mt-2.5 inline-flex items-center rounded-full bg-white/[0.06] px-5 py-3 text-[14px] font-semibold text-purple-200 transition-all hover:bg-white/[0.09] hover:text-white"
-          >
-            {actionLabel}
-          </button>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
 function LandingSkeleton() {
   return (
-    <div className="min-h-screen bg-dark-gradient text-white">
-      <div className="mx-auto max-w-lg px-5 pb-8 pt-6">
-        <div className="mb-5 px-1">
-          <div className="h-8 w-72 animate-pulse rounded-xl bg-white/[0.08]" />
+    <div className="min-h-[100dvh] bg-dark-gradient text-white">
+      <div className="mx-auto flex min-h-[100dvh] max-w-lg flex-col px-4 pb-[max(14px,env(safe-area-inset-bottom))] pt-[max(14px,env(safe-area-inset-top))]">
+        <div className="mb-3 px-1">
+          <div className="h-7 w-64 animate-pulse rounded-xl bg-white/[0.08]" />
         </div>
 
-        <div className="mb-5 px-1">
-          <div className="mb-2.5 h-5 w-36 animate-pulse rounded-full bg-white/[0.06]" />
-          <div className="scrollbar-hide flex gap-2.5 overflow-x-auto py-3">
+        <div className="mb-3 px-1">
+          <div className="mb-2 h-5 w-36 animate-pulse rounded-full bg-white/[0.06]" />
+          <div className="scrollbar-hide flex gap-2.5 overflow-x-auto py-2.5">
             {Array.from({ length: 5 }).map((_, index) => (
               <div
                 key={index}
-                className="w-[88px] flex-shrink-0 animate-pulse"
+                className="w-[72px] flex-shrink-0 animate-pulse min-[390px]:w-[78px] sm:w-[88px]"
               >
                 <div className="aspect-[9/16] rounded-xl bg-white/[0.08]" />
                 <div className="mt-1 h-3 rounded-full bg-white/[0.06]" />
@@ -384,15 +468,13 @@ function LandingSkeleton() {
           </div>
         </div>
 
-        <div className="mb-5 px-1">
-          <div className="mb-3 h-5 w-60 animate-pulse rounded-full bg-white/[0.06]" />
-          <div className="overflow-hidden rounded-[28px] border border-white/8 bg-white/[0.04] p-4">
-            <div className="aspect-[4/3] animate-pulse rounded-[24px] bg-white/[0.06]" />
-          </div>
+        <div className="mb-3 px-1">
+          <div className="mb-2 h-5 w-56 animate-pulse rounded-full bg-white/[0.06]" />
+          <div className="h-[clamp(104px,19dvh,132px)] animate-pulse rounded-[22px] bg-white/[0.06]" />
         </div>
 
         <div className="px-1">
-          <div className="h-16 w-full animate-pulse rounded-[24px] bg-white/[0.08]" />
+          <div className="h-14 w-full animate-pulse rounded-[22px] bg-white/[0.08]" />
         </div>
       </div>
     </div>
@@ -419,11 +501,12 @@ function HomeContent() {
     }
   }, [router, sessionId, canceled, shouldResume]);
 
-  useAuth();
-  const { selectTemplate } = useCreateStore();
+  const { user: authUser } = useAuth();
 
   const [shuffledTemplates] = useState<Template[]>(() => shuffleTemplates(allTemplates));
-  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showEmailSheet, setShowEmailSheet] = useState(false);
+  const [showCharacterSheet, setShowCharacterSheet] = useState(false);
+  const [deliveryEmail, setDeliveryEmail] = useState('');
   const [selectedDance, setSelectedDance] = useState<Template>(shuffledTemplates[0] ?? allTemplates[0]);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string>(urlCharacter?.id ?? defaultPresetCharacter.id);
   const [inputMode, setInputMode] = useState<CreateInputMode>('preset');
@@ -434,11 +517,30 @@ function HomeContent() {
   const [paidTemplateRecovered, setPaidTemplateRecovered] = useState(false);
   const [myVideos, setMyVideos] = useState<SavedVideo[]>([]);
   const viewContentTrackedRef = useRef(false);
-  const hiddenPhotoUploaderRef = useRef<PhotoUploaderHandle>(null);
 
   const selectedCharacter = getPresetCharacterById(selectedCharacterId) ?? defaultPresetCharacter;
   const visibleCharacters = hasUrlCharacterVariant && urlCharacter ? [urlCharacter] : presetCharacters;
   const canCreate = inputMode === 'preset' || !!photoFile || hasSavedPhoto;
+  const photoPreviewUrl = useMemo(
+    () => photoFile ? URL.createObjectURL(photoFile) : null,
+    [photoFile],
+  );
+
+  useEffect(() => {
+    if (!photoPreviewUrl) return;
+
+    return () => URL.revokeObjectURL(photoPreviewUrl);
+  }, [photoPreviewUrl]);
+
+  useEffect(() => {
+    if (deliveryEmail) return;
+
+    const storedEmail = localStorage.getItem(DELIVERY_EMAIL_KEY) ?? '';
+    const prefillEmail = authUser?.email || storedEmail;
+    if (prefillEmail) {
+      setDeliveryEmail(prefillEmail);
+    }
+  }, [authUser?.email, deliveryEmail]);
 
   const handleInputModeSelect = useCallback((mode: CreateInputMode) => {
     setInputMode(mode);
@@ -623,11 +725,15 @@ function HomeContent() {
   }, [selectedDance.id, trackTemplateSelect]);
 
   const handleCharacterSelect = useCallback((character: PresetCharacter) => {
-    if (character.id === selectedCharacter.id && inputMode === 'preset') return;
+    if (character.id === selectedCharacter.id && inputMode === 'preset') {
+      setShowCharacterSheet(false);
+      return;
+    }
 
     setSelectedCharacterId(character.id);
     setCharacterSelectionSource('manual');
     setInputMode('preset');
+    setShowCharacterSheet(false);
 
     trackEvent('character_select', buildFunnelEventProps({
       templateId: selectedDance.id,
@@ -841,6 +947,7 @@ function HomeContent() {
     setPhotoFile(file);
     setHasSavedPhoto(true);
     setInputMode('upload');
+    setShowCharacterSheet(false);
     trackEvent('photo_upload', buildFunnelEventProps({
       templateId: selectedDance.id,
       templateName: selectedDance.name,
@@ -853,6 +960,102 @@ function HomeContent() {
       },
     }));
   }, [selectedDance.id, selectedDance.name, selectedCharacter.id, characterSelectionSource]);
+
+  async function startGuestPreview(email: string) {
+    if (!selectedDance) return;
+
+    const uploadedPhoto = await getUploadedPhoto();
+    const generationPhoto = await getGenerationPhoto(inputMode, selectedCharacter);
+
+    if (inputMode === 'upload' && !generationPhoto) {
+      toast.error('Please upload a photo to continue.');
+      setPhotoFile(null);
+      setHasSavedPhoto(false);
+      localStorage.removeItem(PENDING_PHOTO_READY_KEY);
+      return;
+    }
+
+    if (!generationPhoto) {
+      toast.error('Unable to load the selected preset character. Please try another character.');
+      return;
+    }
+
+    if (uploadedPhoto) {
+      setPhotoFile(uploadedPhoto);
+      setHasSavedPhoto(true);
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!isValidDeliveryEmail(normalizedEmail)) {
+      toast.error('Please enter a valid email address.');
+      return;
+    }
+
+    setIsProcessing(true);
+    setShowEmailSheet(false);
+
+    try {
+      if (uploadedPhoto) {
+        await savePhotoToDB(uploadedPhoto);
+      }
+      savePendingDraft(selectedDance, selectedCharacter.id, inputMode);
+
+      const previewEventId = generateEventId();
+      trackEvent('preview_start', currentEventProps({
+        eventId: previewEventId,
+        delivery: 'email',
+      }));
+
+      const formData = new FormData();
+      formData.append('email', normalizedEmail);
+      formData.append('motion_video_url', selectedDance.motionVideoUrl);
+      formData.append('mode', selectedDance.mode);
+      formData.append('character_orientation', selectedDance.characterOrientation);
+      formData.append('duration_seconds', String(selectedDance.durationSeconds));
+      formData.append('photo', generationPhoto);
+      formData.append('template_id', selectedDance.id);
+      formData.append('template_name', selectedDance.name);
+      formData.append('character_id', selectedCharacter.id);
+      formData.append('input_mode', inputMode);
+      formData.append('tt_event_id', previewEventId);
+      formData.append('tt_template_id', selectedDance.id);
+      formData.append('tt_template_name', selectedDance.name);
+
+      const ttclid = getTikTokClickId();
+      const ttp = getTikTokTtp();
+      if (ttclid) formData.append('tt_ttclid', ttclid);
+      if (ttp) formData.append('tt_ttp', ttp);
+
+      const response = await fetch('/api/preview', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to start your preview.');
+      }
+
+      if (!result.orderId || !result.token) {
+        throw new Error('Preview started, but the order link was not returned.');
+      }
+
+      trackEvent('generation_start', currentEventProps({
+        taskId: result.taskId ?? result.task_id,
+        orderId: result.orderId,
+        delivery: 'email',
+      }));
+
+      localStorage.setItem(DELIVERY_EMAIL_KEY, normalizedEmail);
+      setPaidTemplateRecovered(false);
+      router.replace(`/order/${result.orderId}?token=${encodeURIComponent(result.token)}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to start your preview. Please try again.';
+      toast.error(message);
+      setIsProcessing(false);
+    }
+  }
 
   async function handlePay() {
     if (!selectedDance) return;
@@ -878,165 +1081,15 @@ function HomeContent() {
       setHasSavedPhoto(true);
     }
 
-    if (!useAuthStore.getState().isAuthenticated) {
-      selectTemplate(selectedDance);
-      if (uploadedPhoto) {
-        await savePhotoToDB(uploadedPhoto);
-      }
-      savePendingDraft(selectedDance, selectedCharacter.id, inputMode);
-
-      setShowAuthModal(true);
-      return;
-    }
-
-    setIsProcessing(true);
-
-    try {
-      if (uploadedPhoto) {
-        await savePhotoToDB(uploadedPhoto);
-      }
-      savePendingDraft(selectedDance, selectedCharacter.id, inputMode);
-
-      const creditsNeeded = Math.ceil((selectedDance.mode === '720p' ? 17 : 26) * selectedDance.durationSeconds * 1.8);
-      let hasEnoughCredits = false;
-      try {
-        const credits = await getCredits();
-        const total = getTotalCredits(credits);
-        hasEnoughCredits = total >= creditsNeeded;
-      } catch {
-        // Ignore credit lookup issues and fall through to payment.
-      }
-
-      if (hasEnoughCredits) {
-        const formData = new FormData();
-        formData.append('motion_video_url', selectedDance.motionVideoUrl);
-        formData.append('mode', selectedDance.mode);
-        formData.append('character_orientation', selectedDance.characterOrientation);
-        formData.append('duration_seconds', String(selectedDance.durationSeconds));
-        formData.append('photo', generationPhoto);
-
-        const token = getToken();
-        const response = await fetch('/api/generate-free', {
-          method: 'POST',
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: formData,
-        });
-
-        const result = await response.json();
-
-        if (response.ok && result.task_id) {
-          trackEvent('generation_start', currentEventProps({
-            taskId: result.task_id,
-          }));
-
-          clearPendingDraft();
-          localStorage.setItem(PENDING_SESSION_ID_KEY, 'credits');
-          await clearPhotoDB();
-          router.replace(`/create/${result.task_id}`);
-          return;
-        }
-
-        if (response.status !== 402) {
-          throw new Error(result.error || 'Generation failed');
-        }
-      }
-
-      const checkoutEventId = generateEventId();
-      trackEvent('payment_start', currentEventProps({
-        amount: 1.99,
-        eventId: checkoutEventId,
-      }));
-
-      if (sessionId) {
-        const resumeEventId = getPaymentEventId(sessionId) || generateEventId();
-        const formData = new FormData();
-        formData.append('session_id', sessionId);
-        formData.append('motion_video_url', selectedDance.motionVideoUrl);
-        formData.append('mode', selectedDance.mode);
-        formData.append('character_orientation', selectedDance.characterOrientation);
-        formData.append('duration_seconds', String(selectedDance.durationSeconds));
-        formData.append('photo', generationPhoto);
-        formData.append('tt_event_id', resumeEventId);
-        formData.append('tt_template_id', selectedDance.id);
-        formData.append('tt_template_name', selectedDance.name);
-        const ttclid2 = getTikTokClickId();
-        const ttp2 = getTikTokTtp();
-        if (ttclid2) formData.append('tt_ttclid', ttclid2);
-        if (ttp2) formData.append('tt_ttp', ttp2);
-
-        const token = getToken();
-        const response = await fetch('/api/generate', {
-          method: 'POST',
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: formData,
-        });
-
-        const result = await response.json();
-        if (!response.ok) {
-          if (response.status === 401) {
-            router.replace(buildLoginRedirect(getCurrentPathWithSearch()));
-            return;
-          }
-
-          throw new Error(result.error || 'Failed to resume paid session');
-        }
-
-        trackEvent('generation_start', currentEventProps({
-          taskId: result.task_id,
-        }));
-
-        clearPendingDraft();
-        localStorage.setItem(PENDING_SESSION_ID_KEY, sessionId);
-        await clearPhotoDB();
-        setPaidTemplateRecovered(false);
-        router.replace(`/create/${result.task_id}`);
-        return;
-      }
-
-      const res = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
-        },
-        body: JSON.stringify({
-          templateId: selectedDance.id,
-          templateName: selectedDance.name,
-          characterId: selectedCharacter.id,
-          inputMode,
-          ttEventId: checkoutEventId,
-          ttTtclid: getTikTokClickId() || undefined,
-          ttTtp: getTikTokTtp() || undefined,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        if (res.status === 401) {
-          router.replace(buildLoginRedirect(getCurrentPathWithSearch()));
-          return;
-        }
-        throw new Error(data.error || 'Failed to create checkout session');
-      }
-
-      if (!data.url) {
-        throw new Error('No checkout URL returned');
-      }
-
-      window.location.href = data.url;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to start payment. Please try again.';
-      toast.error(message);
-      setIsProcessing(false);
-    }
+    const prefillEmail = deliveryEmail || authUser?.email || localStorage.getItem(DELIVERY_EMAIL_KEY) || '';
+    setDeliveryEmail(prefillEmail);
+    setShowEmailSheet(true);
+    trackEvent('delivery_email_prompt', currentEventProps({
+      source: 'generate_button',
+    }));
   }
 
-  const primaryCtaLabel = sessionId ? 'Finish My Video' : 'Create My Video';
+  const primaryCtaLabel = sessionId ? 'Finish My Video' : 'Generate Video';
 
   if (isProcessing && sessionId) {
     return (
@@ -1050,10 +1103,10 @@ function HomeContent() {
 
   return (
     <>
-      <div className="min-h-screen bg-dark-gradient text-white">
-        <div className="mx-auto max-w-lg px-5 pb-8 pt-6">
-          <div className="mb-5 px-1">
-            <h1 className="text-[22px] font-bold leading-[1.15] tracking-tight">
+      <div className="min-h-[100dvh] bg-dark-gradient text-white">
+        <div className="mx-auto flex min-h-[100dvh] max-w-lg flex-col px-4 pb-[max(14px,env(safe-area-inset-bottom))] pt-[max(14px,env(safe-area-inset-top))] sm:px-5 sm:pt-6">
+          <div className="mb-3 shrink-0 px-1">
+            <h1 className="text-[22px] font-bold leading-[1.15] tracking-normal">
               Create Your Own{' '}
               <span className="bg-gradient-to-r from-purple-400 to-violet-300 bg-clip-text text-transparent">
                 Dance Video
@@ -1061,16 +1114,14 @@ function HomeContent() {
             </h1>
           </div>
 
-          <MyVideos videos={myVideos} />
-
           <DanceSelector
             templates={shuffledTemplates}
             selected={selectedDance}
             onSelect={handleTemplateSelect}
           />
 
-          <div className="mb-5 px-1">
-            <div className="mb-3 flex items-center gap-2 px-1">
+          <div className="mb-3 shrink-0 px-1">
+            <div className="mb-2 flex items-center gap-2 px-1">
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-purple-500/20 text-[11px] font-bold text-purple-200">
                 2
               </span>
@@ -1079,82 +1130,24 @@ function HomeContent() {
               </p>
             </div>
 
-            {sessionId || paidTemplateRecovered ? (
-              <p className="mb-2 px-1 text-[11px] text-emerald-300">
-                Payment already confirmed. Update your character or photo and continue without paying again.
-              </p>
-            ) : null}
-
-            {hasUrlCharacterVariant ? (
-              inputMode === 'preset' ? (
-                <>
-                  <PhotoUploader
-                    ref={hiddenPhotoUploaderRef}
-                    onFileSelected={handleFileSelected}
-                    hideUi
-                  />
-                  <SelectedCharacterSummary
-                    character={selectedCharacter}
-                    actionLabel="Change another photo"
-                    onAction={() => hiddenPhotoUploaderRef.current?.openPicker()}
-                  />
-                </>
-              ) : (
-                <div>
-                  <div className="rounded-2xl ring-2 ring-purple-500/40 transition-all">
-                    <PhotoUploader
-                      onFileSelected={handleFileSelected}
-                      selectedFile={photoFile}
-                      hasSavedPhoto={hasSavedPhoto}
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleInputModeSelect('preset')}
-                    className="mt-3 text-[12px] font-semibold text-purple-300 transition-colors hover:text-purple-200"
-                  >
-                    Use {selectedCharacter.name}
-                  </button>
-                </div>
-              )
-            ) : (
-              <>
-                <InputModeToggle
-                  inputMode={inputMode}
-                  onSelect={handleInputModeSelect}
-                />
-
-                {inputMode === 'preset' ? (
-                  <PresetCharacterSelector
-                    characters={visibleCharacters}
-                    selectedId={selectedCharacter.id}
-                    activeInputMode={inputMode}
-                    onSelect={handleCharacterSelect}
-                  />
-                ) : (
-                  <div className="rounded-2xl ring-2 ring-purple-500/40 transition-all">
-                    <PhotoUploader
-                      onFileSelected={handleFileSelected}
-                      selectedFile={photoFile}
-                      hasSavedPhoto={hasSavedPhoto}
-                    />
-                  </div>
-                )}
-              </>
-            )}
-
-            {hasSavedPhoto && inputMode === 'preset' ? (
-              <p className="mt-2 px-1 text-[11px] text-white/30">
-                Your uploaded photo is still saved if you want to switch back.
-              </p>
-            ) : null}
+            <CompactCharacterSummary
+              character={selectedCharacter}
+              inputMode={inputMode}
+              photoPreviewUrl={photoPreviewUrl}
+              hasSavedPhoto={hasSavedPhoto}
+              isPaidRecovered={Boolean(sessionId || paidTemplateRecovered)}
+              onChange={() => {
+                setInputMode('upload');
+                setShowCharacterSheet(true);
+              }}
+            />
           </div>
 
-          <div className="px-1">
+          <div className="shrink-0 px-1">
             <Button
               variant="glow"
               size="lg"
-              className="landing-cta h-16 w-full rounded-[24px] text-[18px] font-bold tracking-[-0.02em] shadow-[0_0_34px_rgba(168,85,247,0.52)] transition-transform duration-200 hover:scale-[1.01] hover:shadow-[0_0_42px_rgba(192,132,252,0.68)] active:scale-[0.985] active:shadow-[0_0_22px_rgba(168,85,247,0.34)]"
+              className="landing-cta h-14 w-full rounded-[22px] text-[17px] font-bold shadow-[0_0_34px_rgba(168,85,247,0.52)] transition-transform duration-200 hover:scale-[1.01] hover:shadow-[0_0_42px_rgba(192,132,252,0.68)] active:scale-[0.985] active:shadow-[0_0_22px_rgba(168,85,247,0.34)] sm:h-16 sm:rounded-[24px] sm:text-[18px]"
               disabled={!canCreate || isProcessing}
               isLoading={isProcessing}
               onClick={handlePay}
@@ -1169,15 +1162,58 @@ function HomeContent() {
               </span>
             </Button>
           </div>
+
+          <div className="mt-5">
+            <MyVideos videos={myVideos} />
+          </div>
         </div>
       </div>
 
-      <AuthModal
-        isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
-        onSuccess={() => {
-          setShowAuthModal(false);
-          setTimeout(() => handlePay(), 300);
+      <BottomSheet
+        isOpen={showCharacterSheet}
+        onClose={() => setShowCharacterSheet(false)}
+      >
+        <div className="space-y-4 pb-1">
+          <div>
+            <h2 className="text-[22px] font-bold tracking-normal text-white">
+              Choose your photo or character
+            </h2>
+          </div>
+
+          <InputModeToggle
+            inputMode={inputMode}
+            onSelect={handleInputModeSelect}
+          />
+
+          {inputMode === 'preset' ? (
+            <PresetCharacterSelector
+              characters={visibleCharacters}
+              selectedId={selectedCharacter.id}
+              activeInputMode={inputMode}
+              onSelect={handleCharacterSelect}
+            />
+          ) : (
+            <div className="rounded-2xl ring-2 ring-purple-500/40 transition-all">
+              <PhotoUploader
+                onFileSelected={handleFileSelected}
+                selectedFile={photoFile}
+                hasSavedPhoto={hasSavedPhoto}
+              />
+            </div>
+          )}
+        </div>
+      </BottomSheet>
+
+      <DeliveryEmailSheet
+        isOpen={showEmailSheet}
+        email={deliveryEmail}
+        isSubmitting={isProcessing}
+        onClose={() => {
+          if (!isProcessing) setShowEmailSheet(false);
+        }}
+        onEmailChange={setDeliveryEmail}
+        onSubmit={(email) => {
+          void startGuestPreview(email);
         }}
       />
     </>

@@ -96,6 +96,8 @@ export function BottomSheet({ isOpen, onClose, children }: BottomSheetProps) {
         ref={backdropRef}
         type="button"
         aria-label="Close sheet"
+        aria-hidden={!isOpen}
+        tabIndex={isOpen ? 0 : -1}
         className={`fixed inset-0 bg-black/20 z-40 transition-opacity duration-300 ${
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
@@ -104,7 +106,9 @@ export function BottomSheet({ isOpen, onClose, children }: BottomSheetProps) {
       {/* Sheet */}
       <div
         ref={sheetRef}
-        className={`fixed inset-x-0 bottom-0 z-50 transition-transform duration-300 ease-out ${
+        aria-hidden={!isOpen}
+        inert={!isOpen ? true : undefined}
+        className={`fixed inset-x-0 bottom-0 z-50 mx-auto max-w-lg transition-transform duration-300 ease-out ${
           isOpen ? 'translate-y-0' : 'translate-y-full'
         }`}
         onTouchStart={handleTouchStart}

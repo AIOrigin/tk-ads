@@ -1,12 +1,11 @@
-import Stripe from 'stripe';
 import { NextRequest, NextResponse } from 'next/server';
 import { getBaseUrl } from '@/lib/server/base-url';
 import { getCurrentUserFromAuthHeader } from '@/lib/server/current-user';
 import { sendTikTokEvent, extractTikTokContext } from '@/lib/server/tiktok-events';
+import { getStripeClient } from '@/lib/server/stripe-client';
 
 export const runtime = 'nodejs';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!.trim());
 const TOOL_API_BASE = process.env.TOOL_API_INTERNAL_URL || process.env.NEXT_PUBLIC_TOOL_API_BASE_URL!;
 const USER_API_BASE = process.env.USER_API_INTERNAL_URL || process.env.NEXT_PUBLIC_USER_API_BASE_URL!;
 const USER_API_KEY = process.env.USER_API_INTERNAL_KEY || '';
@@ -57,6 +56,11 @@ export async function POST(req: NextRequest) {
   let sessionId: string | null = null;
 
   try {
+    const stripe = getStripeClient();
+    if (!stripe) {
+      return NextResponse.json({ error: 'Stripe is not configured' }, { status: 500 });
+    }
+
     // Get user's JWT from Authorization header (forwarded from frontend)
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
@@ -238,14 +242,17 @@ export async function POST(req: NextRequest) {
     if (sessionId) {
       usedSessions.delete(sessionId);
       try {
-        const session = await stripe.checkout.sessions.retrieve(sessionId);
-        const metadata = session.metadata ?? {};
-        await stripe.checkout.sessions.update(sessionId, {
-          metadata: {
-            ...metadata,
-            generationStatus: metadata.taskId ? metadata.generationStatus || 'processing' : 'ready',
-          },
-        });
+        const stripe = getStripeClient();
+        if (stripe) {
+          const session = await stripe.checkout.sessions.retrieve(sessionId);
+          const metadata = session.metadata ?? {};
+          await stripe.checkout.sessions.update(sessionId, {
+            metadata: {
+              ...metadata,
+              generationStatus: metadata.taskId ? metadata.generationStatus || 'processing' : 'ready',
+            },
+          });
+        }
       } catch (stripeError) {
         console.error('Failed to reset checkout session metadata:', stripeError);
       }
