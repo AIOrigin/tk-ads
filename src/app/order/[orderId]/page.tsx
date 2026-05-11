@@ -293,7 +293,7 @@ function OrderContent() {
               ) : null
             ) : (
               <Button variant="glow" size="lg" className="h-12 w-full rounded-[20px] text-[15px]" isLoading={isUnlocking} onClick={handleUnlock}>
-                Get Original for $0.10
+                Get Original for $0.50
               </Button>
             )}
             <Button
