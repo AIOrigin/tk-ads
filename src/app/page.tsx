@@ -422,7 +422,7 @@ function InputModeToggle({
 }) {
   return (
     <div className="mb-3 grid grid-cols-2 gap-1 rounded-2xl bg-white/[0.04] p-1">
-      {(['preset', 'upload'] as CreateInputMode[]).map((mode) => {
+      {(['upload', 'preset'] as CreateInputMode[]).map((mode) => {
         const isActive = inputMode === mode;
         const label = mode === 'preset' ? 'Character' : 'My Photo';
 
@@ -1136,7 +1136,10 @@ function HomeContent() {
               photoPreviewUrl={photoPreviewUrl}
               hasSavedPhoto={hasSavedPhoto}
               isPaidRecovered={Boolean(sessionId || paidTemplateRecovered)}
-              onChange={() => setShowCharacterSheet(true)}
+              onChange={() => {
+                setInputMode('upload');
+                setShowCharacterSheet(true);
+              }}
             />
           </div>
 
@@ -1173,7 +1176,7 @@ function HomeContent() {
         <div className="space-y-4 pb-1">
           <div>
             <h2 className="text-[22px] font-bold tracking-normal text-white">
-              Choose a character
+              Choose your photo or character
             </h2>
           </div>
 
