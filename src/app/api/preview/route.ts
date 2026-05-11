@@ -76,6 +76,7 @@ export async function POST(req: NextRequest) {
     genForm.append('duration_seconds', String(durationSeconds));
     genForm.append('input_files', photoFile);
     genForm.append('video_urls', JSON.stringify([motionVideoUrl]));
+    genForm.append('page_source', 'tk-ads-preview');
 
     const genResponse = await fetch(`${TOOL_API_BASE}/v2/motion-control/generate`, {
       method: 'POST',
