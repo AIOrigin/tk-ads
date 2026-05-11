@@ -204,9 +204,6 @@ function OrderContent() {
     <div className="h-[100dvh] overflow-hidden bg-dark-gradient text-white">
       <div className="mx-auto flex h-[100dvh] max-w-lg flex-col px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-[max(12px,env(safe-area-inset-top))] sm:px-5 sm:pt-6">
         <div className="mb-3 shrink-0 px-1">
-          <p className="mb-1 text-[11px] font-medium uppercase tracking-wider text-white/35">
-            Dance Like Me
-          </p>
           <h1 className="text-[21px] font-bold leading-[1.12] tracking-tight sm:text-[22px]">
             {failed
               ? 'Generation failed'
@@ -214,13 +211,13 @@ function OrderContent() {
                 ? order.unlocked
                   ? 'Your video is ready'
                   : 'Your preview is ready'
-                : 'Your preview is being created'}
+                : "We're creating your video"}
           </h1>
           <p className="mt-1.5 text-[12px] leading-[1.35] text-white/45 sm:text-[13px]">
             {previewInProgress ? (
               <>
-                We&apos;ll email the video link to {order.email}{' '}
-                when it&apos;s ready. This usually takes 10 minutes or more.
+                We&apos;ll email your video link to {order.email}{' '}
+                when it&apos;s ready. This usually takes 5 to 10 minutes.
               </>
             ) : (
               <>We will send the video link to {order.email}.</>

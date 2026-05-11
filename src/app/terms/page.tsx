@@ -4,7 +4,7 @@ export default function TermsPage() {
       <div className="mx-auto max-w-2xl space-y-6">
         <h1 className="text-3xl font-bold">Terms of Service</h1>
         <p className="text-sm leading-6 text-gray-600">
-          By using Dance Like Me, you confirm that you have the right to upload the content you submit and
+          By using this service, you confirm that you have the right to upload the content you submit and
           you agree not to use the service for unlawful, abusive, or infringing activity.
         </p>
         <p className="text-sm leading-6 text-gray-600">
