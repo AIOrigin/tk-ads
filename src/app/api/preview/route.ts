@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
 
     const ttCtx = extractTikTokContext(req);
     sendTikTokEvent({
-      event: 'SubmitForm',
+      event: 'CompleteRegistration',
       event_id: ttEventId || undefined,
       user: {
         email,

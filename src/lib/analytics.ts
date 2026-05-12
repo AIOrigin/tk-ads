@@ -8,7 +8,7 @@ const TT_EVENT_MAP: Record<string, string> = {
   sign_up: 'CompleteRegistration',
   payment_start: 'InitiateCheckout',
   payment_complete: 'Purchase',
-  generation_start: 'SubmitForm',
+  generation_start: 'CompleteRegistration',
   video_download: 'Download',
 };
 
