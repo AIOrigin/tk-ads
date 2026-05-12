@@ -2,7 +2,7 @@
  * Generic server-side TikTok Events API endpoint.
  *
  * Handles events that don't have a dedicated server route
- * (ViewContent, CompleteRegistration, Download).
+ * (ViewContent, CompleteRegistration, SubmitForm, Download).
  * Purchase and InitiateCheckout are fired inline from
  * /api/generate and /api/checkout respectively.
  */
@@ -18,6 +18,7 @@ export const runtime = 'nodejs';
 const ALLOWED_EVENTS = new Set([
   'ViewContent',
   'CompleteRegistration',
+  'SubmitForm',
   'Download',
 ]);
 
