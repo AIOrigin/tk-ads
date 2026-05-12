@@ -8,6 +8,7 @@ const TT_EVENT_MAP: Record<string, string> = {
   sign_up: 'CompleteRegistration',
   payment_start: 'InitiateCheckout',
   payment_complete: 'Purchase',
+  generation_start: 'SubmitForm',
   video_download: 'Download',
 };
 
@@ -23,7 +24,12 @@ const META_EVENT_MAP: Record<string, { event: string; custom: boolean }> = {
 // Events that need server-side firing via /api/tt-event.
 // InitiateCheckout and Purchase are excluded — they fire inline
 // from /api/checkout and /api/generate respectively.
-const SERVER_SIDE_EVENTS = new Set(['view_content', 'sign_up', 'video_download']);
+const SERVER_SIDE_EVENTS = new Set([
+  'view_content',
+  'sign_up',
+  'generation_start',
+  'video_download',
+]);
 
 // TikTok expects a nested `contents` array — flat params are silently ignored.
 interface TikTokContent {
