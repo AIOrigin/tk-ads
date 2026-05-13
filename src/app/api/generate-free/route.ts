@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUserFromAuthHeader } from '@/lib/server/current-user';
+import { resolveTaskErrorText } from '@/lib/task-errors';
 
 export const runtime = 'nodejs';
 
@@ -45,6 +46,7 @@ export async function POST(req: NextRequest) {
     if (!genResponse.ok) {
       let errorDetail = '';
       try { errorDetail = await genResponse.text(); } catch { /* ignore */ }
+      const failure = resolveTaskErrorText(errorDetail);
       console.error('Generation API error (credits):', genResponse.status, errorDetail);
 
       if (genResponse.status === 402) {
@@ -55,8 +57,8 @@ export async function POST(req: NextRequest) {
       }
 
       return NextResponse.json(
-        { error: `Video generation failed (${genResponse.status}): ${errorDetail || 'Unknown error'}` },
-        { status: 502 }
+        { error: failure.errorMessage, code: failure.errorCode },
+        { status: failure.errorCode === 'TASK_CONCURRENCY_LIMIT' ? 409 : 502 }
       );
     }
 

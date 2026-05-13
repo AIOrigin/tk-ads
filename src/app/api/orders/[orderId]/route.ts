@@ -5,9 +5,11 @@ import {
   fetchToolTaskStatus,
   getGuestOrder,
   normalizeTaskState,
+  resolveTaskFailure,
   resolveVideoUrls,
   UpstreamApiError,
 } from '@/lib/server/tk-ads-orders';
+import { getUserFacingTaskErrorMessage } from '@/lib/task-errors';
 
 export const runtime = 'nodejs';
 
@@ -28,6 +30,8 @@ export async function GET(
     let progress = 0;
     let previewVideoUrl: string | null = null;
     let originalVideoUrl: string | null = null;
+    let errorCode: string | null = null;
+    let errorMessage: string | null = null;
 
     if (order.taskId) {
       task = await fetchToolTaskStatus(order.taskId, order.accessToken);
@@ -42,7 +46,10 @@ export async function GET(
       } else if (taskState === 'completed' && !previewVideoUrl && !order.unlocked) {
         taskState = 'processing';
       } else if (taskState === 'failed') {
-        order = await failGuestOrder(orderId, token, 'Generation failed');
+        const taskFailure = resolveTaskFailure(task);
+        errorCode = taskFailure.errorCode;
+        errorMessage = getUserFacingTaskErrorMessage(taskFailure.errorMessage, errorCode);
+        order = await failGuestOrder(orderId, token, errorMessage);
       }
     }
 
@@ -59,6 +66,8 @@ export async function GET(
       unlockEmailSentAt: order.unlockEmailSentAt,
       previewVideoUrl,
       originalVideoUrl,
+      errorCode,
+      errorMessage,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to load order';

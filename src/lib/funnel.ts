@@ -7,6 +7,7 @@ export const PENDING_SESSION_ID_KEY = 'dance_pending_session_id';
 export const PENDING_TASK_ID_KEY = 'dance_pending_task_id';
 export const PENDING_CHARACTER_ID_KEY = 'dance_pending_character_id';
 export const PENDING_INPUT_MODE_KEY = 'dance_pending_input_mode';
+export const ACTIVE_ORDER_KEY = 'dance_active_order';
 
 // --- My Videos (localStorage) ---
 const MY_VIDEOS_KEY = 'dance_my_videos';
@@ -16,6 +17,14 @@ export interface SavedVideo {
   taskId: string;
   videoUrl: string;
   createdAt: string;
+}
+
+export interface ActiveOrder {
+  orderId: string;
+  token: string;
+  taskId: string | null;
+  email: string | null;
+  updatedAt: string;
 }
 
 export function getSavedVideos(): SavedVideo[] {
@@ -34,6 +43,63 @@ export function saveVideo(video: SavedVideo): void {
   filtered.unshift(video);
   localStorage.setItem(MY_VIDEOS_KEY, JSON.stringify(filtered.slice(0, MAX_SAVED_VIDEOS)));
 }
+
+function isActiveOrder(value: unknown): value is ActiveOrder {
+  if (!value || typeof value !== 'object') return false;
+
+  const candidate = value as Partial<ActiveOrder>;
+  return (
+    typeof candidate.orderId === 'string' &&
+    candidate.orderId.length > 0 &&
+    typeof candidate.token === 'string' &&
+    candidate.token.length > 0
+  );
+}
+
+export function getActiveOrder(): ActiveOrder | null {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const parsed = JSON.parse(localStorage.getItem(ACTIVE_ORDER_KEY) || 'null');
+    return isActiveOrder(parsed)
+      ? {
+          orderId: parsed.orderId,
+          token: parsed.token,
+          taskId: parsed.taskId ?? null,
+          email: parsed.email ?? null,
+          updatedAt: parsed.updatedAt || new Date().toISOString(),
+        }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveActiveOrder(order: Omit<ActiveOrder, 'updatedAt'> & { updatedAt?: string }): void {
+  if (typeof window === 'undefined') return;
+
+  localStorage.setItem(ACTIVE_ORDER_KEY, JSON.stringify({
+    orderId: order.orderId,
+    token: order.token,
+    taskId: order.taskId ?? null,
+    email: order.email ?? null,
+    updatedAt: order.updatedAt || new Date().toISOString(),
+  }));
+}
+
+export function clearActiveOrder(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(ACTIVE_ORDER_KEY);
+}
+
+export function clearActiveOrderIfMatches(orderId: string | null | undefined): void {
+  if (typeof window === 'undefined') return;
+
+  const activeOrder = getActiveOrder();
+  if (!activeOrder || (orderId && activeOrder.orderId !== orderId)) return;
+  clearActiveOrder();
+}
+
 export const PHOTO_DB_NAME = 'dance_photo_db';
 export const PHOTO_STORE = 'photos';
 export const PHOTO_KEY = 'pending_photo';

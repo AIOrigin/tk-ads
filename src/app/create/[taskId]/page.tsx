@@ -81,7 +81,7 @@ function CompletedView({ videoUrl, onDownload, onCreateAnother }: {
   );
 }
 
-function FailedView({ onRetry }: { onRetry: () => void }) {
+function FailedView({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
     <div className="min-h-[85vh] flex flex-col items-center justify-center px-8 text-center">
       <div className="w-16 h-16 rounded-full bg-red-500/15 flex items-center justify-center mb-6">
@@ -91,7 +91,7 @@ function FailedView({ onRetry }: { onRetry: () => void }) {
       </div>
       <h2 className="text-lg font-semibold text-white mb-1.5">Generation failed</h2>
       <p className="text-[13px] text-white/50 mb-8 max-w-[260px]">
-        Your payment went through, but we could not finish the video. Please try again or contact support.
+        {message}
       </p>
       <Button size="lg" className="w-full max-w-[260px]" onClick={onRetry}>
         Try Again
@@ -194,7 +194,7 @@ function ProgressContent() {
   }
 
   if (error || status?.status === 'failed') {
-    return <FailedView onRetry={handleRetry} />;
+    return <FailedView message={error || 'We could not finish this video. Please try again or contact support.'} onRetry={handleRetry} />;
   }
 
   if (status?.status === 'completed' && status.videos?.[0]?.video_url) {

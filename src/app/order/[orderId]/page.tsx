@@ -9,12 +9,19 @@ import templates from '@/data/templates.json';
 import type { Template } from '@/types/template';
 import { isCreateInputMode } from '@/types/create';
 import {
+  clearActiveOrderIfMatches,
   PENDING_CHARACTER_ID_KEY,
   PENDING_INPUT_MODE_KEY,
   PENDING_TEMPLATE_KEY,
+  saveActiveOrder,
 } from '@/lib/funnel';
 
 const allTemplates = templates as Template[];
+const TERMINAL_ORDER_STATUSES = new Set(['completed', 'failed', 'unlocked', 'canceled', 'cancelled', 'invalid']);
+
+function isTerminalOrderStatus(status: string | null | undefined): boolean {
+  return TERMINAL_ORDER_STATUSES.has((status || '').toLowerCase());
+}
 
 interface OrderState {
   orderId: string;
@@ -31,6 +38,8 @@ interface OrderState {
   unlockEmailSentAt: string | null;
   previewVideoUrl: string | null;
   originalVideoUrl: string | null;
+  errorCode: string | null;
+  errorMessage: string | null;
 }
 
 function OrderLoading() {
@@ -87,6 +96,9 @@ function OrderContent() {
       });
       const payload = await response.json();
       if (!response.ok) {
+        if ([400, 401, 403, 404, 410].includes(response.status)) {
+          clearActiveOrderIfMatches(orderId);
+        }
         throw new Error(payload.error || 'Failed to load order');
       }
       setOrder(payload);
@@ -107,6 +119,24 @@ function OrderContent() {
     }, 5000);
     return () => window.clearInterval(timer);
   }, [isWorking, loadOrder]);
+
+  useEffect(() => {
+    if (!order) return;
+
+    if (isTerminalOrderStatus(order.status)) {
+      clearActiveOrderIfMatches(order.orderId);
+      return;
+    }
+
+    if (isWorking) {
+      saveActiveOrder({
+        orderId: order.orderId,
+        token,
+        taskId: order.taskId,
+        email: order.email,
+      });
+    }
+  }, [isWorking, order, token]);
 
   useEffect(() => {
     if (notifiedReturnRef.current) return;
@@ -155,20 +185,36 @@ function OrderContent() {
     window.location.href = buildVideoUrl(variant);
   }
 
-  function handleTryAnotherLook() {
-    if (order) {
-      const template = allTemplates.find((item) => item.id === order.templateId);
-      if (template) {
-        localStorage.setItem(PENDING_TEMPLATE_KEY, JSON.stringify(template));
-      }
-      if (order.characterId) {
-        localStorage.setItem(PENDING_CHARACTER_ID_KEY, order.characterId);
-      }
-      if (isCreateInputMode(order.inputMode)) {
-        localStorage.setItem(PENDING_INPUT_MODE_KEY, order.inputMode);
-      }
-    }
+  function saveOrderDraft() {
+    if (!order) return;
 
+    const template = allTemplates.find((item) => item.id === order.templateId);
+    if (template) {
+      localStorage.setItem(PENDING_TEMPLATE_KEY, JSON.stringify(template));
+    }
+    if (order.characterId) {
+      localStorage.setItem(PENDING_CHARACTER_ID_KEY, order.characterId);
+    }
+    if (isCreateInputMode(order.inputMode)) {
+      localStorage.setItem(PENDING_INPUT_MODE_KEY, order.inputMode);
+    }
+  }
+
+  function handleTryAnotherLook() {
+    saveOrderDraft();
+    router.push('/?resume=1');
+  }
+
+  function handlePrepareAnotherVideo() {
+    if (order) {
+      saveActiveOrder({
+        orderId: order.orderId,
+        token,
+        taskId: order.taskId,
+        email: order.email,
+      });
+    }
+    saveOrderDraft();
     router.push('/?resume=1');
   }
 
@@ -228,7 +274,7 @@ function OrderContent() {
         {failed ? (
           <div className="mb-3 flex min-h-0 flex-1 items-center justify-center rounded-2xl border border-red-400/20 bg-red-500/10 p-5 text-center">
             <p className="text-[14px] text-red-100">
-              We could not finish this video. Please try again or contact support.
+              {order.errorMessage || 'We could not finish this video. Please try again or contact support.'}
             </p>
           </div>
         ) : displayVideoUrl && displayVariant ? (
@@ -282,6 +328,22 @@ function OrderContent() {
             </div>
           </div>
         )}
+
+        {!failed && isWorking ? (
+          <div className="shrink-0 space-y-2 px-1">
+            <Button
+              variant="secondary"
+              size="lg"
+              className="h-12 w-full rounded-[20px] border border-white/10 bg-white/[0.06] text-[15px] text-white hover:bg-white/[0.1] active:bg-white/[0.14]"
+              onClick={handlePrepareAnotherVideo}
+            >
+              Prepare another video
+            </Button>
+            <p className="px-2 text-center text-[12px] text-white/40">
+              This video will keep generating while you edit the next one.
+            </p>
+          </div>
+        ) : null}
 
         {!failed && completed && (previewReady || originalReady) ? (
           <div className="shrink-0 space-y-2 px-1">

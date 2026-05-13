@@ -3,6 +3,7 @@ import { getBaseUrl } from '@/lib/server/base-url';
 import { getCurrentUserFromAuthHeader } from '@/lib/server/current-user';
 import { sendTikTokEvent, extractTikTokContext } from '@/lib/server/tiktok-events';
 import { getStripeClient } from '@/lib/server/stripe-client';
+import { resolveTaskErrorText } from '@/lib/task-errors';
 
 export const runtime = 'nodejs';
 
@@ -194,10 +195,11 @@ export async function POST(req: NextRequest) {
       try {
         errorDetail = await genResponse.text();
       } catch { /* ignore */ }
+      const failure = resolveTaskErrorText(errorDetail);
       console.error('Generation API error:', genResponse.status, errorDetail);
       return NextResponse.json(
-        { error: `Video generation failed (${genResponse.status}): ${errorDetail || 'Unknown error'}` },
-        { status: 502 }
+        { error: failure.errorMessage, code: failure.errorCode },
+        { status: failure.errorCode === 'TASK_CONCURRENCY_LIMIT' ? 409 : 502 }
       );
     }
 

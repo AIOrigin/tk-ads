@@ -25,7 +25,9 @@ import { isCreateInputMode } from '@/types/create';
 import {
   buildLoginRedirect,
   getCurrentPathWithSearch,
+  getActiveOrder,
   getSavedVideos,
+  saveActiveOrder,
   PENDING_CHARACTER_ID_KEY,
   PENDING_INPUT_MODE_KEY,
   PENDING_PHOTO_READY_KEY,
@@ -35,6 +37,8 @@ import {
   PHOTO_DB_NAME,
   PHOTO_KEY,
   PHOTO_STORE,
+  clearActiveOrder,
+  type ActiveOrder,
   type SavedVideo,
 } from '@/lib/funnel';
 
@@ -42,6 +46,8 @@ const allTemplates = templates as Template[];
 const defaultPresetCharacter = getPresetCharacterById(DEFAULT_PRESET_CHARACTER_ID) ?? presetCharacters[0];
 const PAYMENT_EVENT_IDS_KEY = 'dance_payment_event_ids';
 const DELIVERY_EMAIL_KEY = 'dance_delivery_email';
+const ACTIVE_ORDER_STATUSES = new Set(['created', 'pending', 'processing', 'queued', 'submitted']);
+const TERMINAL_ORDER_STATUSES = new Set(['completed', 'failed', 'unlocked', 'canceled', 'cancelled', 'invalid']);
 
 interface CheckoutSessionInfo {
   sessionId: string;
@@ -52,6 +58,12 @@ interface CheckoutSessionInfo {
   paid: boolean;
   characterId: string | null;
   inputMode: string | null;
+}
+
+interface OrderLookupPayload {
+  status?: string | null;
+  taskId?: string | null;
+  email?: string | null;
 }
 
 function openPhotoDB(): Promise<IDBDatabase> {
@@ -104,6 +116,19 @@ function getStoredInputMode(): CreateInputMode | null {
 
   const value = localStorage.getItem(PENDING_INPUT_MODE_KEY);
   return isCreateInputMode(value) ? value : null;
+}
+
+function normalizeOrderStatus(status: string | null | undefined): string {
+  return (status || '').toLowerCase();
+}
+
+function isTerminalOrderStatus(status: string | null | undefined): boolean {
+  return TERMINAL_ORDER_STATUSES.has(normalizeOrderStatus(status));
+}
+
+function isActiveOrderStatus(status: string | null | undefined): boolean {
+  const normalized = normalizeOrderStatus(status);
+  return !normalized || ACTIVE_ORDER_STATUSES.has(normalized);
 }
 
 function savePendingDraft(template: Template, characterId: string, inputMode: CreateInputMode): void {
@@ -239,6 +264,59 @@ function DeliveryEmailSheet({
           Start generating
         </Button>
       </form>
+    </BottomSheet>
+  );
+}
+
+function ActiveGenerationSheet({
+  isOpen,
+  activeOrder,
+  onViewCurrent,
+  onKeepEditing,
+}: {
+  isOpen: boolean;
+  activeOrder: ActiveOrder | null;
+  onViewCurrent: () => void;
+  onKeepEditing: () => void;
+}) {
+  return (
+    <BottomSheet isOpen={isOpen} onClose={onKeepEditing}>
+      <div className="space-y-5 pb-1">
+        <div>
+          <h2 className="text-[22px] font-bold tracking-normal text-white">
+            Your video is still generating
+          </h2>
+          <p className="mt-2 text-[14px] leading-5 text-white/55">
+            You can keep editing the next video here, but please wait for the current one to finish before starting another generation.
+          </p>
+        </div>
+
+        {activeOrder?.email ? (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase text-white/35">Current delivery email</p>
+            <p className="mt-1 truncate text-[15px] font-semibold text-white">{activeOrder.email}</p>
+          </div>
+        ) : null}
+
+        <div className="space-y-2.5">
+          <Button
+            variant="glow"
+            size="lg"
+            className="h-14 w-full rounded-2xl text-[16px]"
+            onClick={onViewCurrent}
+          >
+            View current video
+          </Button>
+          <Button
+            variant="secondary"
+            size="lg"
+            className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.06] text-[15px]"
+            onClick={onKeepEditing}
+          >
+            Keep editing next video
+          </Button>
+        </div>
+      </div>
     </BottomSheet>
   );
 }
@@ -505,18 +583,22 @@ function HomeContent() {
 
   const [shuffledTemplates] = useState<Template[]>(() => shuffleTemplates(allTemplates));
   const [showEmailSheet, setShowEmailSheet] = useState(false);
+  const [showActiveOrderSheet, setShowActiveOrderSheet] = useState(false);
   const [showCharacterSheet, setShowCharacterSheet] = useState(false);
   const [deliveryEmail, setDeliveryEmail] = useState('');
+  const [blockingActiveOrder, setBlockingActiveOrder] = useState<ActiveOrder | null>(null);
   const [selectedDance, setSelectedDance] = useState<Template>(shuffledTemplates[0] ?? allTemplates[0]);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string>(urlCharacter?.id ?? defaultPresetCharacter.id);
   const [inputMode, setInputMode] = useState<CreateInputMode>('preset');
   const [characterSelectionSource, setCharacterSelectionSource] = useState<CharacterSelectionSource>(urlCharacter ? 'url' : 'default');
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [hasSavedPhoto, setHasSavedPhoto] = useState(false);
+  const [isCheckingActiveOrder, setIsCheckingActiveOrder] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [paidTemplateRecovered, setPaidTemplateRecovered] = useState(false);
   const [myVideos, setMyVideos] = useState<SavedVideo[]>([]);
   const viewContentTrackedRef = useRef(false);
+  const previewSubmitLockRef = useRef(false);
 
   const selectedCharacter = getPresetCharacterById(selectedCharacterId) ?? defaultPresetCharacter;
   const visibleCharacters = hasUrlCharacterVariant && urlCharacter ? [urlCharacter] : presetCharacters;
@@ -661,6 +743,60 @@ function HomeContent() {
 
     return createPresetCharacterFile(character);
   }, [getUploadedPhoto]);
+
+  const saveCurrentSelectionDraft = useCallback(async (uploadedPhoto: File | null) => {
+    if (uploadedPhoto) {
+      await savePhotoToDB(uploadedPhoto);
+    }
+    savePendingDraft(selectedDance, selectedCharacter.id, inputMode);
+  }, [inputMode, selectedCharacter.id, selectedDance]);
+
+  const resolveBlockingActiveOrder = useCallback(async (): Promise<ActiveOrder | null> => {
+    const activeOrder = getActiveOrder();
+    if (!activeOrder) return null;
+
+    try {
+      const response = await fetch(
+        `/api/orders/${encodeURIComponent(activeOrder.orderId)}?token=${encodeURIComponent(activeOrder.token)}`,
+        { cache: 'no-store' }
+      );
+
+      if (!response.ok) {
+        if ([400, 401, 403, 404, 410].includes(response.status)) {
+          clearActiveOrder();
+          return null;
+        }
+        return activeOrder;
+      }
+
+      const payload = await response.json() as OrderLookupPayload;
+      if (isTerminalOrderStatus(payload.status)) {
+        clearActiveOrder();
+        return null;
+      }
+
+      if (isActiveOrderStatus(payload.status)) {
+        const refreshedOrder = {
+          ...activeOrder,
+          taskId: payload.taskId ?? activeOrder.taskId ?? null,
+          email: payload.email ?? activeOrder.email ?? null,
+        };
+        saveActiveOrder(refreshedOrder);
+        return refreshedOrder;
+      }
+
+      return activeOrder;
+    } catch {
+      return activeOrder;
+    }
+  }, []);
+
+  const showBlockingActiveOrder = useCallback(async (activeOrder: ActiveOrder, uploadedPhoto: File | null) => {
+    await saveCurrentSelectionDraft(uploadedPhoto);
+    setBlockingActiveOrder(activeOrder);
+    setShowEmailSheet(false);
+    setShowActiveOrderSheet(true);
+  }, [saveCurrentSelectionDraft]);
 
   useEffect(() => {
     if (landingHydratedRef.current || sessionId) return;
@@ -963,42 +1099,53 @@ function HomeContent() {
 
   async function startGuestPreview(email: string) {
     if (!selectedDance) return;
-
-    const uploadedPhoto = await getUploadedPhoto();
-    const generationPhoto = await getGenerationPhoto(inputMode, selectedCharacter);
-
-    if (inputMode === 'upload' && !generationPhoto) {
-      toast.error('Please upload a photo to continue.');
-      setPhotoFile(null);
-      setHasSavedPhoto(false);
-      localStorage.removeItem(PENDING_PHOTO_READY_KEY);
-      return;
-    }
-
-    if (!generationPhoto) {
-      toast.error('Unable to load the selected preset character. Please try another character.');
-      return;
-    }
-
-    if (uploadedPhoto) {
-      setPhotoFile(uploadedPhoto);
-      setHasSavedPhoto(true);
-    }
-
-    const normalizedEmail = email.trim().toLowerCase();
-    if (!isValidDeliveryEmail(normalizedEmail)) {
-      toast.error('Please enter a valid email address.');
-      return;
-    }
-
+    if (previewSubmitLockRef.current) return;
+    previewSubmitLockRef.current = true;
     setIsProcessing(true);
-    setShowEmailSheet(false);
 
     try {
-      if (uploadedPhoto) {
-        await savePhotoToDB(uploadedPhoto);
+      const uploadedPhoto = await getUploadedPhoto();
+      const generationPhoto = await getGenerationPhoto(inputMode, selectedCharacter);
+
+      if (inputMode === 'upload' && !generationPhoto) {
+        toast.error('Please upload a photo to continue.');
+        setPhotoFile(null);
+        setHasSavedPhoto(false);
+        localStorage.removeItem(PENDING_PHOTO_READY_KEY);
+        previewSubmitLockRef.current = false;
+        setIsProcessing(false);
+        return;
       }
-      savePendingDraft(selectedDance, selectedCharacter.id, inputMode);
+
+      if (!generationPhoto) {
+        toast.error('Unable to load the selected preset character. Please try another character.');
+        previewSubmitLockRef.current = false;
+        setIsProcessing(false);
+        return;
+      }
+
+      if (uploadedPhoto) {
+        setPhotoFile(uploadedPhoto);
+        setHasSavedPhoto(true);
+      }
+
+      const normalizedEmail = email.trim().toLowerCase();
+      if (!isValidDeliveryEmail(normalizedEmail)) {
+        toast.error('Please enter a valid email address.');
+        previewSubmitLockRef.current = false;
+        setIsProcessing(false);
+        return;
+      }
+
+      const activeOrder = await resolveBlockingActiveOrder();
+      if (activeOrder) {
+        await showBlockingActiveOrder(activeOrder, uploadedPhoto);
+        previewSubmitLockRef.current = false;
+        setIsProcessing(false);
+        return;
+      }
+
+      await saveCurrentSelectionDraft(uploadedPhoto);
 
       const previewEventId = generateEventId();
       trackEvent('preview_start', currentEventProps({
@@ -1041,6 +1188,13 @@ function HomeContent() {
         throw new Error('Preview started, but the order link was not returned.');
       }
 
+      saveActiveOrder({
+        orderId: result.orderId,
+        token: result.token,
+        taskId: result.taskId ?? result.task_id ?? null,
+        email: normalizedEmail,
+      });
+
       trackEvent('generation_start', currentEventProps({
         taskId: result.taskId ?? result.task_id,
         orderId: result.orderId,
@@ -1053,6 +1207,7 @@ function HomeContent() {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to start your preview. Please try again.';
       toast.error(message);
+      previewSubmitLockRef.current = false;
       setIsProcessing(false);
     }
   }
@@ -1079,6 +1234,20 @@ function HomeContent() {
     if (uploadedPhoto) {
       setPhotoFile(uploadedPhoto);
       setHasSavedPhoto(true);
+    }
+
+    setIsCheckingActiveOrder(true);
+    try {
+      const activeOrder = await resolveBlockingActiveOrder();
+      if (activeOrder) {
+        await showBlockingActiveOrder(activeOrder, uploadedPhoto);
+        return;
+      }
+    } catch {
+      toast.error('We could not save your draft. Please try again.');
+      return;
+    } finally {
+      setIsCheckingActiveOrder(false);
     }
 
     const prefillEmail = deliveryEmail || authUser?.email || localStorage.getItem(DELIVERY_EMAIL_KEY) || '';
@@ -1148,8 +1317,8 @@ function HomeContent() {
               variant="glow"
               size="lg"
               className="landing-cta h-14 w-full rounded-[22px] text-[17px] font-bold shadow-[0_0_34px_rgba(168,85,247,0.52)] transition-transform duration-200 hover:scale-[1.01] hover:shadow-[0_0_42px_rgba(192,132,252,0.68)] active:scale-[0.985] active:shadow-[0_0_22px_rgba(168,85,247,0.34)] sm:h-16 sm:rounded-[24px] sm:text-[18px]"
-              disabled={!canCreate || isProcessing}
-              isLoading={isProcessing}
+              disabled={!canCreate || isProcessing || isCheckingActiveOrder}
+              isLoading={isProcessing || isCheckingActiveOrder}
               onClick={handlePay}
             >
               <span className="relative z-[1] inline-flex items-center gap-2.5">
@@ -1213,7 +1382,20 @@ function HomeContent() {
         }}
         onEmailChange={setDeliveryEmail}
         onSubmit={(email) => {
+          setDeliveryEmail(email);
           void startGuestPreview(email);
+        }}
+      />
+
+      <ActiveGenerationSheet
+        isOpen={showActiveOrderSheet}
+        activeOrder={blockingActiveOrder}
+        onViewCurrent={() => {
+          if (!blockingActiveOrder) return;
+          router.push(`/order/${encodeURIComponent(blockingActiveOrder.orderId)}?token=${encodeURIComponent(blockingActiveOrder.token)}`);
+        }}
+        onKeepEditing={() => {
+          setShowActiveOrderSheet(false);
         }}
       />
     </>

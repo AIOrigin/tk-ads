@@ -8,10 +8,19 @@ import {
   UpstreamApiError,
 } from '@/lib/server/tk-ads-orders';
 import { sendTikTokEvent, extractTikTokContext } from '@/lib/server/tiktok-events';
+import { resolveTaskErrorText } from '@/lib/task-errors';
 
 export const runtime = 'nodejs';
 
 const TOOL_API_BASE = process.env.TOOL_API_INTERNAL_URL || process.env.NEXT_PUBLIC_TOOL_API_BASE_URL!;
+
+async function readToolError(response: Response): Promise<{
+  errorCode: string | null;
+  errorMessage: string;
+}> {
+  const text = await response.text().catch(() => '');
+  return resolveTaskErrorText(text);
+}
 
 function firstForwardedIp(req: NextRequest): string {
   return (
@@ -86,11 +95,11 @@ export async function POST(req: NextRequest) {
     });
 
     if (!genResponse.ok) {
-      const detail = await genResponse.text().catch(() => '');
-      await failGuestOrder(orderId, orderToken, detail || `Generation failed (${genResponse.status})`);
+      const failure = await readToolError(genResponse);
+      await failGuestOrder(orderId, orderToken, failure.errorMessage);
       return NextResponse.json(
-        { error: detail || 'Video generation failed' },
-        { status: genResponse.status === 402 ? 402 : 502 }
+        { error: failure.errorMessage, code: failure.errorCode },
+        { status: failure.errorCode === 'TASK_CONCURRENCY_LIMIT' ? 409 : genResponse.status === 402 ? 402 : 502 }
       );
     }
 

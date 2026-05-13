@@ -51,6 +51,9 @@ export interface VideoOutput {
   status: string;
   progress: number;
   video_url: string | null;
+  code: string | null;
+  error_code: string | null;
+  error_message: string | null;
   started_at: string | null;
   completed_at: string | null;
   duration_seconds: number | null;
@@ -70,6 +73,9 @@ export interface TaskStatus {
   videos: VideoOutput[];
   created_at: string;
   completed_at: string | null;
+  code: string | null;
+  error_code: string | null;
+  error_message: string | null;
 }
 
 export interface BatchStatusResponse {
