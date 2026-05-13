@@ -268,105 +268,6 @@ function DeliveryEmailSheet({
   );
 }
 
-function GenerationReviewSheet({
-  isOpen,
-  template,
-  character,
-  inputMode,
-  photoPreviewUrl,
-  hasSavedPhoto,
-  email,
-  isSubmitting,
-  onBack,
-  onConfirm,
-}: {
-  isOpen: boolean;
-  template: Template;
-  character: PresetCharacter;
-  inputMode: CreateInputMode;
-  photoPreviewUrl: string | null;
-  hasSavedPhoto: boolean;
-  email: string;
-  isSubmitting: boolean;
-  onBack: () => void;
-  onConfirm: () => void;
-}) {
-  const characterImageUrl = inputMode === 'upload' ? photoPreviewUrl : character.imageUrl;
-  const characterLabel = inputMode === 'upload'
-    ? hasSavedPhoto ? 'Uploaded photo' : 'My photo'
-    : character.name;
-
-  return (
-    <BottomSheet isOpen={isOpen} onClose={onBack}>
-      <div className="space-y-5 pb-1">
-        <div>
-          <h2 className="text-[22px] font-bold tracking-normal text-white">
-            Review your video
-          </h2>
-          <p className="mt-2 text-[14px] leading-5 text-white/55">
-            Generation usually takes 5 to 10 minutes. We&apos;ll email the preview when it&apos;s ready.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-[88px_minmax(0,1fr)] gap-4 rounded-2xl border border-white/10 bg-white/[0.05] p-3">
-          <div className="relative aspect-[9/16] overflow-hidden rounded-xl bg-white/[0.06] ring-1 ring-white/10">
-            {characterImageUrl ? (
-              <img
-                src={characterImageUrl}
-                alt={characterLabel}
-                className={`h-full w-full ${inputMode === 'upload' ? 'object-cover' : 'object-contain'}`}
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-white/35">
-                <svg aria-hidden="true" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                </svg>
-              </div>
-            )}
-          </div>
-
-          <div className="min-w-0 space-y-3 py-1">
-            <div>
-              <p className="text-[11px] font-semibold uppercase text-white/35">Character</p>
-              <p className="mt-1 truncate text-[15px] font-semibold text-white">{characterLabel}</p>
-            </div>
-            <div>
-              <p className="text-[11px] font-semibold uppercase text-white/35">Dance</p>
-              <p className="mt-1 truncate text-[15px] font-semibold text-white">{template.name}</p>
-            </div>
-            <div>
-              <p className="text-[11px] font-semibold uppercase text-white/35">Delivery</p>
-              <p className="mt-1 truncate text-[15px] font-semibold text-white">{email}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-2.5">
-          <Button
-            variant="glow"
-            size="lg"
-            className="h-14 w-full rounded-2xl text-[16px]"
-            isLoading={isSubmitting}
-            disabled={isSubmitting}
-            onClick={onConfirm}
-          >
-            Start generating
-          </Button>
-          <Button
-            variant="secondary"
-            size="lg"
-            className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.06] text-[15px]"
-            disabled={isSubmitting}
-            onClick={onBack}
-          >
-            Back to editing
-          </Button>
-        </div>
-      </div>
-    </BottomSheet>
-  );
-}
-
 function ActiveGenerationSheet({
   isOpen,
   activeOrder,
@@ -682,11 +583,9 @@ function HomeContent() {
 
   const [shuffledTemplates] = useState<Template[]>(() => shuffleTemplates(allTemplates));
   const [showEmailSheet, setShowEmailSheet] = useState(false);
-  const [showReviewSheet, setShowReviewSheet] = useState(false);
   const [showActiveOrderSheet, setShowActiveOrderSheet] = useState(false);
   const [showCharacterSheet, setShowCharacterSheet] = useState(false);
   const [deliveryEmail, setDeliveryEmail] = useState('');
-  const [reviewEmail, setReviewEmail] = useState('');
   const [blockingActiveOrder, setBlockingActiveOrder] = useState<ActiveOrder | null>(null);
   const [selectedDance, setSelectedDance] = useState<Template>(shuffledTemplates[0] ?? allTemplates[0]);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string>(urlCharacter?.id ?? defaultPresetCharacter.id);
@@ -896,7 +795,6 @@ function HomeContent() {
     await saveCurrentSelectionDraft(uploadedPhoto);
     setBlockingActiveOrder(activeOrder);
     setShowEmailSheet(false);
-    setShowReviewSheet(false);
     setShowActiveOrderSheet(true);
   }, [saveCurrentSelectionDraft]);
 
@@ -1485,30 +1383,7 @@ function HomeContent() {
         onEmailChange={setDeliveryEmail}
         onSubmit={(email) => {
           setDeliveryEmail(email);
-          setReviewEmail(email);
-          setShowEmailSheet(false);
-          setShowReviewSheet(true);
-          trackEvent('generation_review_view', currentEventProps({
-            delivery: 'email',
-          }));
-        }}
-      />
-
-      <GenerationReviewSheet
-        isOpen={showReviewSheet}
-        template={selectedDance}
-        character={selectedCharacter}
-        inputMode={inputMode}
-        photoPreviewUrl={photoPreviewUrl}
-        hasSavedPhoto={hasSavedPhoto}
-        email={reviewEmail || deliveryEmail}
-        isSubmitting={isProcessing}
-        onBack={() => {
-          if (isProcessing) return;
-          setShowReviewSheet(false);
-        }}
-        onConfirm={() => {
-          void startGuestPreview(reviewEmail || deliveryEmail);
+          void startGuestPreview(email);
         }}
       />
 
