@@ -4,6 +4,23 @@ import { useEffect, useState, useCallback } from 'react';
 import { getTaskStatus, type TaskStatus } from '@/lib/api/tool-api';
 import { POLL_INTERVAL_MS, MAX_POLL_ATTEMPTS } from '@/lib/constants';
 import { trackEvent } from '@/lib/analytics';
+import { getUserFacingTaskErrorMessage } from '@/lib/task-errors';
+
+function resolvePollingFailure(task: TaskStatus): {
+  errorCode: string | null;
+  errorMessage: string;
+} {
+  const failedVideo =
+    task.videos?.find((video) => video.status === 'failed') ||
+    task.videos?.find((video) => Boolean(video.error_message || video.error_code || video.code));
+  const errorCode = task.error_code || task.code || failedVideo?.error_code || failedVideo?.code || null;
+  const errorMessage = getUserFacingTaskErrorMessage(
+    task.error_message || failedVideo?.error_message || null,
+    errorCode
+  );
+
+  return { errorCode, errorMessage };
+}
 
 export function usePolling(taskId: string | null) {
   const [status, setStatus] = useState<TaskStatus | null>(null);
@@ -46,11 +63,14 @@ export function usePolling(taskId: string | null) {
         }
 
         if (task.status === 'failed') {
+          const failure = resolvePollingFailure(task);
           trackEvent('video_failed', {
             taskId: taskId!,
             templateId: task.template_id || '',
+            errorCode: failure.errorCode || 'unknown',
+            errorMessage: failure.errorMessage,
           });
-          setError('Generation failed');
+          setError(failure.errorMessage);
           setIsPolling(false);
           return;
         }

@@ -20,11 +20,17 @@ export interface TkAdsOrder {
 }
 
 export interface ToolVideo {
+  status?: string | null;
   url?: string | null;
   video_url?: string | null;
   videoUrl?: string | null;
   watermark_url?: string | null;
   watermarkUrl?: string | null;
+  code?: string | null;
+  error_code?: string | null;
+  errorCode?: string | null;
+  error_message?: string | null;
+  errorMessage?: string | null;
   duration_seconds?: number | null;
   durationSeconds?: number | null;
 }
@@ -38,6 +44,12 @@ export interface ToolTaskStatus {
   templateId?: string | null;
   videos?: ToolVideo[];
   outputs?: ToolVideo[];
+  code?: string | null;
+  error_code?: string | null;
+  errorCode?: string | null;
+  error_message?: string | null;
+  errorMessage?: string | null;
+  message?: string | null;
 }
 
 export class UpstreamApiError extends Error {
@@ -185,4 +197,43 @@ export function resolveVideoUrls(task: ToolTaskStatus | null): {
   const originalVideoUrl = video?.video_url || video?.videoUrl || video?.url || null;
   const previewVideoUrl = video?.watermark_url || video?.watermarkUrl || null;
   return { previewVideoUrl, originalVideoUrl };
+}
+
+function firstNonEmptyString(...values: unknown[]): string | null {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
+export function resolveTaskFailure(task: ToolTaskStatus | null): {
+  errorCode: string | null;
+  errorMessage: string | null;
+} {
+  const videos = task?.videos?.length ? task.videos : task?.outputs;
+  const failedOutput =
+    videos?.find((video) => (video.status || '').toLowerCase() === 'failed') ||
+    videos?.find((video) =>
+      Boolean(video.error_message || video.errorMessage || video.error_code || video.errorCode || video.code)
+    );
+
+  return {
+    errorCode: firstNonEmptyString(
+      task?.error_code,
+      task?.errorCode,
+      task?.code,
+      failedOutput?.error_code,
+      failedOutput?.errorCode,
+      failedOutput?.code
+    ),
+    errorMessage: firstNonEmptyString(
+      task?.error_message,
+      task?.errorMessage,
+      task?.message,
+      failedOutput?.error_message,
+      failedOutput?.errorMessage
+    ),
+  };
 }
