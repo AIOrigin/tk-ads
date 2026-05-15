@@ -17,6 +17,11 @@ const HEIC_MIME_TYPES = new Set([
 ]);
 const FALLBACK_IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif', 'avif']);
 const HEIC_EXTENSIONS = new Set(['heic', 'heif']);
+const PHOTO_REQUIREMENTS = [
+  'One clear person or character',
+  'Head, shoulders, and upper body visible',
+  'Avoid cropped, blurry, dark, or crowded images',
+];
 
 function getFileExtension(fileName: string): string {
   return fileName.split('.').pop()?.toLowerCase() ?? '';
@@ -232,7 +237,7 @@ export const PhotoUploader = forwardRef<PhotoUploaderHandle, PhotoUploaderProps>
             </svg>
           </div>
           <span className="text-[13px] font-medium">Tap to upload photo</span>
-          <span className="text-[11px] text-white/20">A clear selfie works best</span>
+          <span className="text-[11px] text-white/25">Upper body photos work best</span>
         </button>
       ) : previewUrl ? (
         <div className="relative aspect-[4/3] rounded-2xl overflow-hidden border border-white/10 bg-black/40">
@@ -274,6 +279,20 @@ export const PhotoUploader = forwardRef<PhotoUploaderHandle, PhotoUploaderProps>
           </button>
         </div>
       )}
+
+      <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.045] px-3.5 py-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/35">
+          Photo checklist
+        </p>
+        <div className="mt-2.5 space-y-2">
+          {PHOTO_REQUIREMENTS.map((requirement) => (
+            <div key={requirement} className="flex items-start gap-2 text-[12px] leading-4 text-white/55">
+              <span className="mt-[5px] h-1.5 w-1.5 flex-shrink-0 rounded-full bg-purple-300/80" />
+              <span>{requirement}</span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 });
