@@ -5,11 +5,14 @@ import dynamic from 'next/dynamic';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
+import { trackEvent } from '@/lib/analytics';
 import templates from '@/data/templates.json';
 import type { Template } from '@/types/template';
 import { isCreateInputMode } from '@/types/create';
+import { getTaskRecoveryContent, type TaskFailureKind } from '@/lib/task-errors';
 import {
   clearActiveOrderIfMatches,
+  getActiveOrder,
   PENDING_CHARACTER_ID_KEY,
   PENDING_INPUT_MODE_KEY,
   PENDING_TEMPLATE_KEY,
@@ -65,6 +68,7 @@ function OrderContent() {
   const [isUnlocking, setIsUnlocking] = useState(false);
   const openedDownloadRef = useRef(false);
   const notifiedReturnRef = useRef(false);
+  const recoveryTrackedRef = useRef<string | null>(null);
 
   const buildVideoUrl = useCallback(
     (variant: 'preview' | 'original') => {
@@ -150,6 +154,21 @@ function OrderContent() {
   }, [returnedCanceled, returnedUnlocked]);
 
   useEffect(() => {
+    if (!order || order.status !== 'failed') return;
+    const recovery = getTaskRecoveryContent(order.errorMessage, order.errorCode);
+    const trackingKey = `${order.orderId}:${recovery.kind}`;
+    if (recoveryTrackedRef.current === trackingKey) return;
+    recoveryTrackedRef.current = trackingKey;
+
+    trackEvent('generation_recovery_shown', {
+      orderId: order.orderId,
+      taskId: order.taskId || '',
+      reason: recovery.kind,
+      surface: 'order_page',
+    });
+  }, [order]);
+
+  useEffect(() => {
     if (!shouldDownload || openedDownloadRef.current || !order) return;
     const variant = shouldDownload === 'original' ? 'original' : 'preview';
     if (variant === 'preview' && order.previewVideoUrl) {
@@ -218,6 +237,44 @@ function OrderContent() {
     router.push('/?resume=1');
   }
 
+  function handleGenerationRecovery(kind: TaskFailureKind) {
+    if (!order) return;
+
+    if (kind === 'concurrency') {
+      const activeOrder = getActiveOrder();
+      if (activeOrder && activeOrder.orderId !== order.orderId) {
+        trackEvent('generation_retry_click', {
+          orderId: order.orderId,
+          taskId: order.taskId || '',
+          reason: kind,
+          action: 'view_current_video',
+        });
+        router.push(`/order/${encodeURIComponent(activeOrder.orderId)}?token=${encodeURIComponent(activeOrder.token)}`);
+        return;
+      }
+    }
+
+    saveOrderDraft();
+
+    if (kind === 'invalid_input') {
+      trackEvent('photo_reupload_click', {
+        orderId: order.orderId,
+        taskId: order.taskId || '',
+        reason: kind,
+      });
+      router.push('/?resume=1&reupload=1');
+      return;
+    }
+
+    trackEvent('generation_retry_click', {
+      orderId: order.orderId,
+      taskId: order.taskId || '',
+      reason: kind,
+      action: 'resume_draft',
+    });
+    router.push('/?resume=1');
+  }
+
   if (error) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-dark-gradient px-8 text-center text-white">
@@ -234,6 +291,7 @@ function OrderContent() {
 
   const completed = ['completed', 'unlocked'].includes(order.status);
   const failed = order.status === 'failed';
+  const recovery = getTaskRecoveryContent(order.errorMessage, order.errorCode);
   const displayVariant = order.previewVideoUrl
     ? 'preview'
     : order.unlocked && order.originalVideoUrl
@@ -252,7 +310,7 @@ function OrderContent() {
         <div className="mb-3 shrink-0 px-1">
           <h1 className="text-[21px] font-bold leading-[1.12] tracking-tight sm:text-[22px]">
             {failed
-              ? 'Generation failed'
+              ? recovery.title
               : displayVideoUrl
                 ? order.unlocked
                   ? 'Your video is ready'
@@ -260,7 +318,9 @@ function OrderContent() {
                 : "We're creating your video"}
           </h1>
           <p className="mt-1.5 text-[12px] leading-[1.35] text-white/45 sm:text-[13px]">
-            {previewInProgress ? (
+            {failed ? (
+              <>Your dance and character choices are saved.</>
+            ) : previewInProgress ? (
               <>
                 We&apos;ll email your video link to {order.email}{' '}
                 when it&apos;s ready. This usually takes 5 to 10 minutes.
@@ -272,10 +332,27 @@ function OrderContent() {
         </div>
 
         {failed ? (
-          <div className="mb-3 flex min-h-0 flex-1 items-center justify-center rounded-2xl border border-red-400/20 bg-red-500/10 p-5 text-center">
-            <p className="text-[14px] text-red-100">
-              {order.errorMessage || 'We could not finish this video. Please try again or contact support.'}
+          <div className="mb-3 flex min-h-0 flex-1 flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/[0.045] p-6 text-center">
+            <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-purple-500/15 ring-1 ring-purple-300/15">
+              <svg aria-hidden="true" className="h-7 w-7 text-purple-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m5-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h2 className="text-[18px] font-semibold text-white">{recovery.title}</h2>
+            <p className="mt-2 max-w-[280px] text-[14px] leading-5 text-white/55">
+              {recovery.message}
             </p>
+            <Button
+              variant="glow"
+              size="lg"
+              className="mt-7 h-12 w-full max-w-[260px] rounded-[20px] text-[15px]"
+              onClick={() => handleGenerationRecovery(recovery.kind)}
+            >
+              {recovery.primaryAction}
+            </Button>
+            <a href="mailto:support@elser.ai" className="mt-4 text-[12px] font-semibold text-purple-300 hover:underline">
+              Contact support
+            </a>
           </div>
         ) : displayVideoUrl && displayVariant ? (
           <div className="mb-3 flex min-h-0 flex-1 items-center justify-center">

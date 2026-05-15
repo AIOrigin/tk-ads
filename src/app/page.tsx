@@ -19,6 +19,7 @@ import {
   presetCharacters,
   type PresetCharacter,
 } from '@/data/preset-characters';
+import { getTaskRecoveryContent } from '@/lib/task-errors';
 import type { Template } from '@/types/template';
 import type { CharacterSelectionSource, CreateInputMode } from '@/types/create';
 import { isCreateInputMode } from '@/types/create';
@@ -565,6 +566,7 @@ function HomeContent() {
   const sessionId = searchParams.get('session_id');
   const canceled = searchParams.get('canceled');
   const shouldResume = searchParams.get('resume') === '1';
+  const shouldReupload = searchParams.get('reupload') === '1';
   const requestedCharacter = searchParams.get('character') ?? searchParams.get('characterId');
   const urlCharacter = getPresetCharacterById(requestedCharacter) ?? null;
   const hasUrlCharacterVariant = !!urlCharacter;
@@ -828,6 +830,12 @@ function HomeContent() {
   }, [sessionId, canceled, shouldResume, restorePendingDraft, urlCharacter]);
 
   useEffect(() => {
+    if (!shouldReupload || sessionId) return;
+    setInputMode('upload');
+    setShowCharacterSheet(true);
+  }, [sessionId, shouldReupload]);
+
+  useEffect(() => {
     if (viewContentTrackedRef.current || sessionId || canceled || shouldResume) return;
 
     const timer = window.setTimeout(() => {
@@ -1042,14 +1050,30 @@ function HomeContent() {
           body: formData,
         });
 
-        const result = await res.json();
+        const result = await res.json().catch(() => null);
         if (!res.ok) {
           if (res.status === 401) {
             router.replace(buildLoginRedirect(getCurrentPathWithSearch()));
             return;
           }
 
-          toast.error(result.error || 'Payment confirmed, but generation failed. Fix your draft below and continue without paying again.');
+          const recovery = getTaskRecoveryContent(result?.error, result?.code);
+          trackEvent('generation_recovery_shown', buildFunnelEventProps({
+            templateId: template.id,
+            templateName: template.name,
+            characterId: recoveredCharacter.id,
+            inputMode: recoveredInputMode,
+            characterSelectionSource: 'restore',
+            extras: {
+              reason: recovery.kind,
+              surface: 'paid_generation_submit',
+            },
+          }));
+          toast.error(recovery.message);
+          if (recovery.kind === 'invalid_input') {
+            setInputMode('upload');
+            setShowCharacterSheet(true);
+          }
           setIsProcessing(false);
           return;
         }
@@ -1178,13 +1202,36 @@ function HomeContent() {
         body: formData,
       });
 
-      const result = await response.json();
+      const result = await response.json().catch(() => null);
 
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to start your preview.');
+        const recovery = getTaskRecoveryContent(result?.error, result?.code);
+        trackEvent('generation_recovery_shown', currentEventProps({
+          reason: recovery.kind,
+          surface: 'preview_submit',
+        }));
+
+        if (recovery.kind === 'concurrency') {
+          const activeOrder = await resolveBlockingActiveOrder();
+          if (activeOrder) {
+            await showBlockingActiveOrder(activeOrder, uploadedPhoto);
+          } else {
+            toast.info(recovery.message);
+          }
+        } else {
+          toast.error(recovery.message);
+          if (recovery.kind === 'invalid_input') {
+            setShowEmailSheet(false);
+            setInputMode('upload');
+            setShowCharacterSheet(true);
+          }
+        }
+        previewSubmitLockRef.current = false;
+        setIsProcessing(false);
+        return;
       }
 
-      if (!result.orderId || !result.token) {
+      if (!result?.orderId || !result.token) {
         throw new Error('Preview started, but the order link was not returned.');
       }
 
@@ -1258,7 +1305,8 @@ function HomeContent() {
     }));
   }
 
-  const primaryCtaLabel = sessionId ? 'Finish My Video' : 'Generate Video';
+  const needsUpload = inputMode === 'upload' && !photoFile && !hasSavedPhoto;
+  const primaryCtaLabel = needsUpload ? 'Upload Photo to Continue' : sessionId ? 'Finish My Video' : 'Generate Video';
 
   if (isProcessing && sessionId) {
     return (
