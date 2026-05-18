@@ -94,7 +94,8 @@ Key prefixes are in `src/lib/funnel.ts`.
 Triple-fires events to Google Analytics (gtag), TikTok Pixel, and Meta Pixel (client-side). For attribution-critical events, TikTok also gets server-side Events API calls (deduped via shared `event_id`):
 
 - **Client-only**: GA fires for all events. TikTok Pixel and Meta Pixel fire client-side.
-- **Client + Server**: `view_content`, `sign_up`, `video_download` also fire via `POST /api/tt-event`. `payment_complete` fires server-side inline from `/api/generate`. `payment_start` fires server-side inline from `/api/checkout`.
+- **Client + Server**: `view_content`, `generation_start`, `video_download` also fire via `POST /api/tt-event`. `payment_complete` fires server-side inline from `/api/generate`. `payment_start` fires server-side inline from `/api/checkout`.
+- **Early ad optimization**: `generation_start` maps to `CompleteRegistration` for TikTok and Meta. Auth-only `sign_up` remains product analytics and is not sent as an ad-pixel conversion.
 - Event name mapping: internal names (e.g. `payment_complete`) → TikTok standard events (`Purchase`) → Meta standard events (`Purchase`). See `TT_EVENT_MAP` and `META_EVENT_MAP` in analytics.ts.
 
 ## Key Patterns

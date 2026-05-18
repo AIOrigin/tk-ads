@@ -2,20 +2,20 @@ import posthog from 'posthog-js';
 
 type EventProperties = Record<string, string | number | boolean>;
 
-// TikTok standard event names matching the funnel configured in TikTok Ads Manager
+// Ad-platform event names. Keep auth-only first login as product analytics,
+// and use generation_start as the early optimization conversion.
 const TT_EVENT_MAP: Record<string, string> = {
   view_content: 'ViewContent',
-  sign_up: 'CompleteRegistration',
+  generation_start: 'CompleteRegistration',
   payment_start: 'InitiateCheckout',
   payment_complete: 'Purchase',
-  generation_start: 'CompleteRegistration',
   video_download: 'Download',
 };
 
 // Meta Pixel standard event names
 const META_EVENT_MAP: Record<string, { event: string; custom: boolean }> = {
   view_content: { event: 'ViewContent', custom: false },
-  sign_up: { event: 'CompleteRegistration', custom: false },
+  generation_start: { event: 'CompleteRegistration', custom: false },
   payment_start: { event: 'InitiateCheckout', custom: false },
   payment_complete: { event: 'Purchase', custom: false },
   video_download: { event: 'Download', custom: true },
@@ -26,7 +26,6 @@ const META_EVENT_MAP: Record<string, { event: string; custom: boolean }> = {
 // from /api/checkout and /api/generate respectively.
 const SERVER_SIDE_EVENTS = new Set([
   'view_content',
-  'sign_up',
   'generation_start',
   'video_download',
 ]);
