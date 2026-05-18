@@ -143,43 +143,44 @@ export async function POST(req: NextRequest) {
     const metaCtx = extractMetaContext(req);
     const appUrl = getBaseUrl(req);
 
-    sendTikTokEvent({
-      event: 'CompleteRegistration',
-      event_id: generationEventId || undefined,
-      user: {
-        email: currentUser.email,
-        external_id: currentUser.id,
-        ip: ttCtx.ip,
-        user_agent: ttCtx.user_agent,
-        ttclid: ttTtclid || ttCtx.ttclid,
-        ttp: ttTtp || ttCtx.ttp,
-      },
-      page_url: `${appUrl}/`,
-      contents: ttTemplateId
-        ? [{ content_id: ttTemplateId, content_type: 'product', content_name: ttTemplateName || '' }]
-        : undefined,
-      value: 0,
-      currency: 'USD',
-    });
-
-    sendMetaEvent({
-      event: 'CompleteRegistration',
-      event_id: generationEventId || undefined,
-      user: {
-        email: currentUser.email,
-        external_id: currentUser.id,
-        ip: metaCtx.ip,
-        user_agent: metaCtx.user_agent,
-        fbp: metaCtx.fbp,
-        fbc: metaCtx.fbc,
-      },
-      page_url: `${appUrl}/`,
-      content_id: ttTemplateId || undefined,
-      content_name: ttTemplateName || undefined,
-      content_type: ttTemplateId ? 'product' : undefined,
-      value: 0,
-      currency: 'USD',
-    });
+    await Promise.allSettled([
+      sendTikTokEvent({
+        event: 'CompleteRegistration',
+        event_id: generationEventId || undefined,
+        user: {
+          email: currentUser.email,
+          external_id: currentUser.id,
+          ip: ttCtx.ip,
+          user_agent: ttCtx.user_agent,
+          ttclid: ttTtclid || ttCtx.ttclid,
+          ttp: ttTtp || ttCtx.ttp,
+        },
+        page_url: `${appUrl}/`,
+        contents: ttTemplateId
+          ? [{ content_id: ttTemplateId, content_type: 'product', content_name: ttTemplateName || '' }]
+          : undefined,
+        value: 0,
+        currency: 'USD',
+      }),
+      sendMetaEvent({
+        event: 'CompleteRegistration',
+        event_id: generationEventId || undefined,
+        user: {
+          email: currentUser.email,
+          external_id: currentUser.id,
+          ip: metaCtx.ip,
+          user_agent: metaCtx.user_agent,
+          fbp: metaCtx.fbp,
+          fbc: metaCtx.fbc,
+        },
+        page_url: `${appUrl}/`,
+        content_id: ttTemplateId || undefined,
+        content_name: ttTemplateName || undefined,
+        content_type: ttTemplateId ? 'product' : undefined,
+        value: 0,
+        currency: 'USD',
+      }),
+    ]);
 
     await stripe.checkout.sessions.update(sessionId, {
       metadata: {
@@ -258,43 +259,44 @@ export async function POST(req: NextRequest) {
     });
 
     // TikTok Events API — Purchase (server-side, deduped with pixel via event_id)
-    sendTikTokEvent({
-      event: 'Purchase',
-      event_id: ttEventId || undefined,
-      user: {
-        email: currentUser.email,
-        external_id: currentUser.id,
-        ip: ttCtx.ip,
-        user_agent: ttCtx.user_agent,
-        ttclid: ttTtclid || ttCtx.ttclid,
-        ttp: ttTtp || ttCtx.ttp,
-      },
-      page_url: `${appUrl}/`,
-      contents: ttTemplateId
-        ? [{ content_id: ttTemplateId, content_type: 'product', content_name: ttTemplateName || '' }]
-        : undefined,
-      value: 1.99,
-      currency: 'USD',
-    });
-
-    sendMetaEvent({
-      event: 'Purchase',
-      event_id: ttEventId || undefined,
-      user: {
-        email: currentUser.email,
-        external_id: currentUser.id,
-        ip: metaCtx.ip,
-        user_agent: metaCtx.user_agent,
-        fbp: metaCtx.fbp,
-        fbc: metaCtx.fbc,
-      },
-      page_url: `${appUrl}/`,
-      content_id: ttTemplateId || undefined,
-      content_name: ttTemplateName || undefined,
-      content_type: ttTemplateId ? 'product' : undefined,
-      value: 1.99,
-      currency: 'USD',
-    });
+    await Promise.allSettled([
+      sendTikTokEvent({
+        event: 'Purchase',
+        event_id: ttEventId || undefined,
+        user: {
+          email: currentUser.email,
+          external_id: currentUser.id,
+          ip: ttCtx.ip,
+          user_agent: ttCtx.user_agent,
+          ttclid: ttTtclid || ttCtx.ttclid,
+          ttp: ttTtp || ttCtx.ttp,
+        },
+        page_url: `${appUrl}/`,
+        contents: ttTemplateId
+          ? [{ content_id: ttTemplateId, content_type: 'product', content_name: ttTemplateName || '' }]
+          : undefined,
+        value: 1.99,
+        currency: 'USD',
+      }),
+      sendMetaEvent({
+        event: 'Purchase',
+        event_id: ttEventId || undefined,
+        user: {
+          email: currentUser.email,
+          external_id: currentUser.id,
+          ip: metaCtx.ip,
+          user_agent: metaCtx.user_agent,
+          fbp: metaCtx.fbp,
+          fbc: metaCtx.fbc,
+        },
+        page_url: `${appUrl}/`,
+        content_id: ttTemplateId || undefined,
+        content_name: ttTemplateName || undefined,
+        content_type: ttTemplateId ? 'product' : undefined,
+        value: 1.99,
+        currency: 'USD',
+      }),
+    ]);
 
     return NextResponse.json({
       success: true,

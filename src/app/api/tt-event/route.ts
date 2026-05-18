@@ -51,43 +51,44 @@ export async function POST(req: NextRequest) {
     const appUrl = getBaseUrl(req);
     const pageUrl = typeof page_url === 'string' && page_url ? page_url : `${appUrl}/`;
 
-    sendTikTokEvent({
-      event,
-      event_id: event_id || undefined,
-      user: {
-        ...(currentUser?.email ? { email: currentUser.email } : {}),
-        ...(currentUser?.id ? { external_id: currentUser.id } : {}),
-        ip: ttCtx.ip,
-        user_agent: ttCtx.user_agent,
-        ttclid: ttclid || ttCtx.ttclid,
-        ttp: ttp || ttCtx.ttp,
-      },
-      page_url: pageUrl,
-      contents: template_id
-        ? [{ content_id: template_id, content_type: 'product', content_name: template_name || '' }]
-        : undefined,
-      value: value !== undefined ? Number(value) : 0,
-      currency: currency || 'USD',
-    });
-
-    sendMetaEvent({
-      event,
-      event_id: event_id || undefined,
-      user: {
-        ...(currentUser?.email ? { email: currentUser.email } : {}),
-        ...(currentUser?.id ? { external_id: currentUser.id } : {}),
-        ip: metaCtx.ip,
-        user_agent: metaCtx.user_agent,
-        fbp: metaCtx.fbp,
-        fbc: metaCtx.fbc,
-      },
-      page_url: pageUrl,
-      content_id: template_id || undefined,
-      content_name: template_name || undefined,
-      content_type: template_id ? 'product' : undefined,
-      value: value !== undefined ? Number(value) : 0,
-      currency: currency || 'USD',
-    });
+    await Promise.allSettled([
+      sendTikTokEvent({
+        event,
+        event_id: event_id || undefined,
+        user: {
+          ...(currentUser?.email ? { email: currentUser.email } : {}),
+          ...(currentUser?.id ? { external_id: currentUser.id } : {}),
+          ip: ttCtx.ip,
+          user_agent: ttCtx.user_agent,
+          ttclid: ttclid || ttCtx.ttclid,
+          ttp: ttp || ttCtx.ttp,
+        },
+        page_url: pageUrl,
+        contents: template_id
+          ? [{ content_id: template_id, content_type: 'product', content_name: template_name || '' }]
+          : undefined,
+        value: value !== undefined ? Number(value) : 0,
+        currency: currency || 'USD',
+      }),
+      sendMetaEvent({
+        event,
+        event_id: event_id || undefined,
+        user: {
+          ...(currentUser?.email ? { email: currentUser.email } : {}),
+          ...(currentUser?.id ? { external_id: currentUser.id } : {}),
+          ip: metaCtx.ip,
+          user_agent: metaCtx.user_agent,
+          fbp: metaCtx.fbp,
+          fbc: metaCtx.fbc,
+        },
+        page_url: pageUrl,
+        content_id: template_id || undefined,
+        content_name: template_name || undefined,
+        content_type: template_id ? 'product' : undefined,
+        value: value !== undefined ? Number(value) : 0,
+        currency: currency || 'USD',
+      }),
+    ]);
 
     return NextResponse.json({ ok: true });
   } catch {

@@ -50,9 +50,9 @@ interface SendEventOptions {
 
 /**
  * Fire a single event to TikTok Events API.
- * Non-blocking — logs errors but never throws.
+ * Logs errors but never throws.
  */
-export function sendTikTokEvent(opts: SendEventOptions): void {
+export async function sendTikTokEvent(opts: SendEventOptions): Promise<void> {
   if (!ACCESS_TOKEN) return;
 
   const payload = {
@@ -88,26 +88,25 @@ export function sendTikTokEvent(opts: SendEventOptions): void {
     ],
   };
 
-  // Fire and forget — don't block the response
-  fetch(EVENTS_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Token': ACCESS_TOKEN,
-    },
-    body: JSON.stringify(payload),
-  })
-    .then(async (res) => {
-      if (!res.ok) {
-        const body = await res.text().catch(() => '');
-        console.error(
-          `[TikTok Events API] ${opts.event} failed: ${res.status} ${body}`
-        );
-      }
-    })
-    .catch((err) => {
-      console.error(`[TikTok Events API] ${opts.event} network error:`, err);
+  try {
+    const res = await fetch(EVENTS_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Token': ACCESS_TOKEN,
+      },
+      body: JSON.stringify(payload),
     });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      console.error(
+        `[TikTok Events API] ${opts.event} failed: ${res.status} ${body}`
+      );
+    }
+  } catch (err) {
+    console.error(`[TikTok Events API] ${opts.event} network error:`, err);
+  }
 }
 
 /**

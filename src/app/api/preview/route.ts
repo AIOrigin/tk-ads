@@ -69,39 +69,40 @@ export async function POST(req: NextRequest) {
     const ttCtx = extractTikTokContext(req);
     const metaCtx = extractMetaContext(req);
 
-    sendTikTokEvent({
-      event: 'CompleteRegistration',
-      event_id: adEventId || undefined,
-      user: {
-        email,
-        ip: ttCtx.ip,
-        user_agent: ttCtx.user_agent,
-        ttclid: ttTtclid || ttCtx.ttclid,
-        ttp: ttTtp || ttCtx.ttp,
-      },
-      page_url: `${appUrl}/`,
-      contents: [{ content_id: templateId, content_type: 'product', content_name: templateName }],
-      value: 0,
-      currency: 'USD',
-    });
-
-    sendMetaEvent({
-      event: 'CompleteRegistration',
-      event_id: adEventId || undefined,
-      user: {
-        email,
-        ip: metaCtx.ip,
-        user_agent: metaCtx.user_agent,
-        fbp: metaCtx.fbp,
-        fbc: metaCtx.fbc,
-      },
-      page_url: `${appUrl}/`,
-      content_id: templateId,
-      content_name: templateName,
-      content_type: 'product',
-      value: 0,
-      currency: 'USD',
-    });
+    await Promise.allSettled([
+      sendTikTokEvent({
+        event: 'CompleteRegistration',
+        event_id: adEventId || undefined,
+        user: {
+          email,
+          ip: ttCtx.ip,
+          user_agent: ttCtx.user_agent,
+          ttclid: ttTtclid || ttCtx.ttclid,
+          ttp: ttTtp || ttCtx.ttp,
+        },
+        page_url: `${appUrl}/`,
+        contents: [{ content_id: templateId, content_type: 'product', content_name: templateName }],
+        value: 0,
+        currency: 'USD',
+      }),
+      sendMetaEvent({
+        event: 'CompleteRegistration',
+        event_id: adEventId || undefined,
+        user: {
+          email,
+          ip: metaCtx.ip,
+          user_agent: metaCtx.user_agent,
+          fbp: metaCtx.fbp,
+          fbc: metaCtx.fbc,
+        },
+        page_url: `${appUrl}/`,
+        content_id: templateId,
+        content_name: templateName,
+        content_type: 'product',
+        value: 0,
+        currency: 'USD',
+      }),
+    ]);
 
     const guestOrder = await createGuestOrder({
       email,

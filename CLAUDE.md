@@ -109,8 +109,8 @@ Triple-fires events to Google Analytics (gtag), TikTok Pixel, and Meta Pixel (cl
 ### Server-Side Helpers (`src/lib/server/`)
 
 - `current-user.ts` — Validates JWT against user-api's `/v1/users/me`; used by all API routes for auth.
-- `tiktok-events.ts` — Non-blocking fire-and-forget to TikTok Events API v1.3. Hashes PII (email, external_id) with SHA-256 before sending.
-- `meta-events.ts` — Non-blocking fire-and-forget to Meta Conversions API. Hashes PII and forwards `_fbp` / `_fbc` cookies for event matching.
+- `tiktok-events.ts` — Sends events to TikTok Events API v1.3. Hashes PII (email, external_id) with SHA-256 before sending.
+- `meta-events.ts` — Sends events to Meta Conversions API. Hashes PII and forwards `_fbp` / `_fbc` cookies for event matching.
 
 ## Environment Variables
 

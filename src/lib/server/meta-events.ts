@@ -72,9 +72,9 @@ export function extractMetaContext(req: Request) {
 
 /**
  * Fire a single event to Meta Conversions API.
- * Non-blocking — logs errors but never throws.
+ * Logs errors but never throws.
  */
-export function sendMetaEvent(opts: SendMetaEventOptions): void {
+export async function sendMetaEvent(opts: SendMetaEventOptions): Promise<void> {
   if (!PIXEL_ID || !ACCESS_TOKEN) return;
 
   const userData = {
@@ -108,20 +108,20 @@ export function sendMetaEvent(opts: SendMetaEventOptions): void {
     ...(TEST_EVENT_CODE ? { test_event_code: TEST_EVENT_CODE } : {}),
   };
 
-  fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/${PIXEL_ID}/events?access_token=${ACCESS_TOKEN}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  })
-    .then(async (res) => {
-      if (!res.ok) {
-        const body = await res.text().catch(() => '');
-        console.error(`[Meta CAPI] ${opts.event} failed: ${res.status} ${body}`);
-      }
-    })
-    .catch((err) => {
-      console.error(`[Meta CAPI] ${opts.event} network error:`, err);
+  try {
+    const res = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/${PIXEL_ID}/events?access_token=${ACCESS_TOKEN}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
     });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      console.error(`[Meta CAPI] ${opts.event} failed: ${res.status} ${body}`);
+    }
+  } catch (err) {
+    console.error(`[Meta CAPI] ${opts.event} network error:`, err);
+  }
 }
