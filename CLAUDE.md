@@ -95,7 +95,7 @@ Triple-fires events to Google Analytics (gtag), TikTok Pixel, and Meta Pixel (cl
 
 - **Client-only**: GA fires for all events. TikTok Pixel and Meta Pixel fire client-side.
 - **Client + Server**: `view_content` and `video_download` also fire via `POST /api/tt-event`. `payment_start` fires server-side inline from `/api/checkout`. `payment_complete` fires server-side inline from `/api/generate`.
-- **Early ad optimization**: `generation_start` maps to `CompleteRegistration` for TikTok and Meta. It fires when the user starts generation, before waiting for the video backend. Server-side `CompleteRegistration` fires inline from `/api/preview` and `/api/generate` before those routes call tool-api. Auth-only `sign_up` remains product analytics and is not sent as an ad-pixel conversion.
+- **Early ad optimization**: `generation_start` maps to `CompleteRegistration` for TikTok and `Lead` for Meta. It fires when the user starts generation, before waiting for the video backend. Server-side early conversion fires inline from `/api/preview` and `/api/generate` before those routes call tool-api. Auth-only `sign_up` remains product analytics and is not sent as an ad-pixel conversion.
 - Event name mapping: internal names (e.g. `payment_complete`) → TikTok standard events (`Purchase`) → Meta standard events (`Purchase`). See `TT_EVENT_MAP` and `META_EVENT_MAP` in analytics.ts.
 
 ## Key Patterns

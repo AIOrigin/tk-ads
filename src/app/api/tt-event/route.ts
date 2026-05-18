@@ -2,9 +2,8 @@
  * Generic server-side ad events endpoint.
  *
  * Handles events that don't have a dedicated server route
- * (ViewContent, CompleteRegistration, Download).
- * CompleteRegistration is normally fired inline from /api/preview
- * and /api/generate. Purchase and InitiateCheckout are fired inline
+ * (ViewContent, Download). Early generation conversion is normally
+ * fired inline from /api/preview and /api/generate. Purchase and InitiateCheckout are fired inline
  * from /api/generate and /api/checkout respectively.
  */
 
@@ -50,6 +49,7 @@ export async function POST(req: NextRequest) {
     const metaCtx = extractMetaContext(req);
     const appUrl = getBaseUrl(req);
     const pageUrl = typeof page_url === 'string' && page_url ? page_url : `${appUrl}/`;
+    const metaEvent = event === 'CompleteRegistration' ? 'Lead' : event;
 
     await Promise.allSettled([
       sendTikTokEvent({
@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
         currency: currency || 'USD',
       }),
       sendMetaEvent({
-        event,
+        event: metaEvent,
         event_id: event_id || undefined,
         user: {
           ...(currentUser?.email ? { email: currentUser.email } : {}),

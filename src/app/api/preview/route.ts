@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
         currency: 'USD',
       }),
       sendMetaEvent({
-        event: 'CompleteRegistration',
+        event: 'Lead',
         event_id: adEventId || undefined,
         user: {
           email,

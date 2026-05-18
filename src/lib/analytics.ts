@@ -15,7 +15,7 @@ const TT_EVENT_MAP: Record<string, string> = {
 // Meta Pixel standard event names
 const META_EVENT_MAP: Record<string, { event: string; custom: boolean }> = {
   view_content: { event: 'ViewContent', custom: false },
-  generation_start: { event: 'CompleteRegistration', custom: false },
+  generation_start: { event: 'Lead', custom: false },
   payment_start: { event: 'InitiateCheckout', custom: false },
   payment_complete: { event: 'Purchase', custom: false },
   video_download: { event: 'Download', custom: true },
@@ -25,7 +25,7 @@ const META_EVENT_MAP: Record<string, { event: string; custom: boolean }> = {
 // InitiateCheckout and Purchase are excluded — they fire inline
 // from /api/checkout and /api/generate respectively.
 // generation_start is excluded because /api/preview and /api/generate
-// fire CompleteRegistration before calling the video backend.
+// fire the platform-specific early conversion before calling the video backend.
 const SERVER_SIDE_EVENTS = new Set([
   'view_content',
   'video_download',
