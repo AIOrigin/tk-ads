@@ -2,20 +2,20 @@ import posthog from 'posthog-js';
 
 type EventProperties = Record<string, string | number | boolean>;
 
-// TikTok standard event names matching the funnel configured in TikTok Ads Manager
+// Ad-platform event names. Keep auth-only first login as product analytics,
+// and use generation_start as the early optimization conversion.
 const TT_EVENT_MAP: Record<string, string> = {
   view_content: 'ViewContent',
-  sign_up: 'CompleteRegistration',
+  generation_start: 'CompleteRegistration',
   payment_start: 'InitiateCheckout',
   payment_complete: 'Purchase',
-  generation_start: 'CompleteRegistration',
   video_download: 'Download',
 };
 
 // Meta Pixel standard event names
 const META_EVENT_MAP: Record<string, { event: string; custom: boolean }> = {
   view_content: { event: 'ViewContent', custom: false },
-  sign_up: { event: 'CompleteRegistration', custom: false },
+  generation_start: { event: 'Lead', custom: false },
   payment_start: { event: 'InitiateCheckout', custom: false },
   payment_complete: { event: 'Purchase', custom: false },
   video_download: { event: 'Download', custom: true },
@@ -24,10 +24,10 @@ const META_EVENT_MAP: Record<string, { event: string; custom: boolean }> = {
 // Events that need server-side firing via /api/tt-event.
 // InitiateCheckout and Purchase are excluded — they fire inline
 // from /api/checkout and /api/generate respectively.
+// generation_start is excluded because /api/preview and /api/generate
+// fire the platform-specific early conversion before calling the video backend.
 const SERVER_SIDE_EVENTS = new Set([
   'view_content',
-  'sign_up',
-  'generation_start',
   'video_download',
 ]);
 
@@ -79,6 +79,10 @@ interface MetaEventParams {
   content_type?: string;
   value?: number;
   currency?: string;
+}
+
+interface MetaEventOptions {
+  eventID: string;
 }
 
 function toMetaParams(eventName: string, props?: EventProperties): MetaEventParams {
@@ -214,6 +218,7 @@ function sendServerEvent(eventName: string, props?: EventProperties): void {
       currency: 'USD',
       ttclid: getTikTokClickId() || undefined,
       ttp: getTikTokTtp() || undefined,
+      page_url: window.location.href,
     }),
   }).catch(() => {
     // Silently fail — server event is supplementary
@@ -259,10 +264,21 @@ export function trackEvent(eventName: string, properties?: EventProperties) {
     const metaMapping = META_EVENT_MAP[eventName];
     if (metaMapping) {
       const metaParams = toMetaParams(eventName, props);
+      const metaOptions: MetaEventOptions | undefined = props?.eventId
+        ? { eventID: String(props.eventId) }
+        : undefined;
       if (metaMapping.custom) {
-        fbq('trackCustom', metaMapping.event, metaParams);
+        if (metaOptions) {
+          fbq('trackCustom', metaMapping.event, metaParams, metaOptions);
+        } else {
+          fbq('trackCustom', metaMapping.event, metaParams);
+        }
       } else {
-        fbq('track', metaMapping.event, metaParams);
+        if (metaOptions) {
+          fbq('track', metaMapping.event, metaParams, metaOptions);
+        } else {
+          fbq('track', metaMapping.event, metaParams);
+        }
       }
     }
   }

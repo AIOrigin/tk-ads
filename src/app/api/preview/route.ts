@@ -8,6 +8,7 @@ import {
   UpstreamApiError,
 } from '@/lib/server/tk-ads-orders';
 import { sendTikTokEvent, extractTikTokContext } from '@/lib/server/tiktok-events';
+import { sendMetaEvent, extractMetaContext } from '@/lib/server/meta-events';
 import { resolveTaskErrorText } from '@/lib/task-errors';
 
 export const runtime = 'nodejs';
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
     const templateName = String(formData.get('template_name') || '');
     const characterId = String(formData.get('character_id') || '');
     const inputMode = String(formData.get('input_mode') || 'preset');
-    const ttEventId = String(formData.get('tt_event_id') || '');
+    const adEventId = String(formData.get('ad_event_id') || formData.get('tt_event_id') || '');
     const ttTtclid = String(formData.get('tt_ttclid') || '');
     const ttTtp = String(formData.get('tt_ttp') || '');
 
@@ -65,6 +66,44 @@ export async function POST(req: NextRequest) {
 
     const creditsNeeded = calculateMotionControlCredits(mode, durationSeconds);
     const appUrl = getBaseUrl(req);
+    const ttCtx = extractTikTokContext(req);
+    const metaCtx = extractMetaContext(req);
+
+    await Promise.allSettled([
+      sendTikTokEvent({
+        event: 'CompleteRegistration',
+        event_id: adEventId || undefined,
+        user: {
+          email,
+          ip: ttCtx.ip,
+          user_agent: ttCtx.user_agent,
+          ttclid: ttTtclid || ttCtx.ttclid,
+          ttp: ttTtp || ttCtx.ttp,
+        },
+        page_url: `${appUrl}/`,
+        contents: [{ content_id: templateId, content_type: 'product', content_name: templateName }],
+        value: 0,
+        currency: 'USD',
+      }),
+      sendMetaEvent({
+        event: 'Lead',
+        event_id: adEventId || undefined,
+        user: {
+          email,
+          ip: metaCtx.ip,
+          user_agent: metaCtx.user_agent,
+          fbp: metaCtx.fbp,
+          fbc: metaCtx.fbc,
+        },
+        page_url: `${appUrl}/`,
+        content_id: templateId,
+        content_name: templateName,
+        content_type: 'product',
+        value: 0,
+        currency: 'USD',
+      }),
+    ]);
+
     const guestOrder = await createGuestOrder({
       email,
       templateId,
@@ -111,23 +150,6 @@ export async function POST(req: NextRequest) {
     }
 
     await attachGuestOrderTask(orderId, orderToken, taskId);
-
-    const ttCtx = extractTikTokContext(req);
-    sendTikTokEvent({
-      event: 'CompleteRegistration',
-      event_id: ttEventId || undefined,
-      user: {
-        email,
-        ip: ttCtx.ip,
-        user_agent: ttCtx.user_agent,
-        ttclid: ttTtclid || ttCtx.ttclid,
-        ttp: ttTtp || ttCtx.ttp,
-      },
-      page_url: `${appUrl}/`,
-      contents: [{ content_id: templateId, content_type: 'product', content_name: templateName }],
-      value: 0,
-      currency: 'USD',
-    });
 
     return NextResponse.json({
       orderId,

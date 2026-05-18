@@ -55,7 +55,7 @@ Landing (/)  →  Login (/login → /login/verify)  →  Landing (select dance +
 | `GET /api/checkout-session` | Retrieves Stripe session status (used after redirect) |
 | `POST /api/generate` | **Paid path**: validates Stripe payment, grants credits to user-api, forwards photo + template to tool-api, stores taskId in Stripe metadata |
 | `POST /api/generate-free` | **Credits path**: skips Stripe, calls tool-api directly (tool-api deducts user's existing credits) |
-| `POST /api/tt-event` | Forwards client-side analytics events to TikTok Events API server-side (ViewContent, CompleteRegistration, Download) |
+| `POST /api/tt-event` | Forwards client-side analytics events to TikTok Events API and Meta Conversions API server-side (ViewContent, Download) |
 
 **Two generation paths**: Paid (`/api/generate`) requires a Stripe checkout session and grants just-in-time credits before calling tool-api. Free (`/api/generate-free`) relies on user's existing credit balance — tool-api returns 402 if insufficient.
 
@@ -91,10 +91,11 @@ Key prefixes are in `src/lib/funnel.ts`.
 
 ### Analytics (`src/lib/analytics.ts`)
 
-Triple-fires events to Google Analytics (gtag), TikTok Pixel, and Meta Pixel (client-side). For attribution-critical events, TikTok also gets server-side Events API calls (deduped via shared `event_id`):
+Triple-fires events to Google Analytics (gtag), TikTok Pixel, and Meta Pixel (client-side). For attribution-critical events, TikTok Events API and Meta Conversions API also get server-side calls deduped via shared `event_id` / Meta `eventID`:
 
 - **Client-only**: GA fires for all events. TikTok Pixel and Meta Pixel fire client-side.
-- **Client + Server**: `view_content`, `sign_up`, `video_download` also fire via `POST /api/tt-event`. `payment_complete` fires server-side inline from `/api/generate`. `payment_start` fires server-side inline from `/api/checkout`.
+- **Client + Server**: `view_content` and `video_download` also fire via `POST /api/tt-event`. `payment_start` fires server-side inline from `/api/checkout`. `payment_complete` fires server-side inline from `/api/generate`.
+- **Early ad optimization**: `generation_start` maps to `CompleteRegistration` for TikTok and `Lead` for Meta. It fires when the user starts generation, before waiting for the video backend. Server-side early conversion fires inline from `/api/preview` and `/api/generate` before those routes call tool-api. Auth-only `sign_up` remains product analytics and is not sent as an ad-pixel conversion.
 - Event name mapping: internal names (e.g. `payment_complete`) → TikTok standard events (`Purchase`) → Meta standard events (`Purchase`). See `TT_EVENT_MAP` and `META_EVENT_MAP` in analytics.ts.
 
 ## Key Patterns
@@ -108,7 +109,8 @@ Triple-fires events to Google Analytics (gtag), TikTok Pixel, and Meta Pixel (cl
 ### Server-Side Helpers (`src/lib/server/`)
 
 - `current-user.ts` — Validates JWT against user-api's `/v1/users/me`; used by all API routes for auth.
-- `tiktok-events.ts` — Non-blocking fire-and-forget to TikTok Events API v1.3. Hashes PII (email, external_id) with SHA-256 before sending.
+- `tiktok-events.ts` — Sends events to TikTok Events API v1.3. Hashes PII (email, external_id) with SHA-256 before sending.
+- `meta-events.ts` — Sends events to Meta Conversions API. Hashes PII and forwards `_fbp` / `_fbc` cookies for event matching.
 
 ## Environment Variables
 
@@ -118,6 +120,7 @@ NEXT_PUBLIC_USER_API_BASE_URL=http://localhost:8000
 NEXT_PUBLIC_TOOL_API_BASE_URL=http://localhost:8001
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXX     # Google Analytics
+NEXT_PUBLIC_META_PIXEL_ID=000000000000000   # Meta Pixel
 
 # Server-side
 STRIPE_SECRET_KEY=sk_test_...
@@ -125,4 +128,6 @@ TOOL_API_INTERNAL_URL=    # Optional; falls back to NEXT_PUBLIC_TOOL_API_BASE_UR
 USER_API_INTERNAL_URL=    # Optional; falls back to NEXT_PUBLIC_USER_API_BASE_URL
 USER_API_INTERNAL_KEY=    # X-API-Key for user-api internal endpoints (credit grants)
 TIKTOK_ACCESS_TOKEN=      # TikTok Events API access token (server-side tracking)
+META_CAPI_ACCESS_TOKEN=   # Meta Conversions API access token (server-side tracking)
+META_CAPI_TEST_EVENT_CODE= # Optional; routes CAPI events to Meta Test Events
 ```

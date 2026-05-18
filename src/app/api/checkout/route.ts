@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getBaseUrl } from '@/lib/server/base-url';
 import { getCurrentUserFromAuthHeader } from '@/lib/server/current-user';
 import { sendTikTokEvent, extractTikTokContext } from '@/lib/server/tiktok-events';
+import { sendMetaEvent, extractMetaContext } from '@/lib/server/meta-events';
 import { getStripeClient } from '@/lib/server/stripe-client';
 
 export const runtime = 'nodejs';
@@ -53,24 +54,45 @@ export async function POST(req: NextRequest) {
 
     // TikTok Events API — InitiateCheckout (server-side, deduped with pixel via event_id)
     const ttCtx = extractTikTokContext(req);
-    sendTikTokEvent({
-      event: 'InitiateCheckout',
-      event_id: ttEventId,
-      user: {
-        email: currentUser.email,
-        external_id: currentUser.id,
-        ip: ttCtx.ip,
-        user_agent: ttCtx.user_agent,
-        ttclid: ttTtclid || ttCtx.ttclid,
-        ttp: ttTtp || ttCtx.ttp,
-      },
-      page_url: `${appUrl}/`,
-      contents: templateId
-        ? [{ content_id: templateId, content_type: 'product', content_name: templateName || '' }]
-        : undefined,
-      value: 1.99,
-      currency: 'USD',
-    });
+    const metaCtx = extractMetaContext(req);
+    await Promise.allSettled([
+      sendTikTokEvent({
+        event: 'InitiateCheckout',
+        event_id: ttEventId,
+        user: {
+          email: currentUser.email,
+          external_id: currentUser.id,
+          ip: ttCtx.ip,
+          user_agent: ttCtx.user_agent,
+          ttclid: ttTtclid || ttCtx.ttclid,
+          ttp: ttTtp || ttCtx.ttp,
+        },
+        page_url: `${appUrl}/`,
+        contents: templateId
+          ? [{ content_id: templateId, content_type: 'product', content_name: templateName || '' }]
+          : undefined,
+        value: 1.99,
+        currency: 'USD',
+      }),
+      sendMetaEvent({
+        event: 'InitiateCheckout',
+        event_id: ttEventId,
+        user: {
+          email: currentUser.email,
+          external_id: currentUser.id,
+          ip: metaCtx.ip,
+          user_agent: metaCtx.user_agent,
+          fbp: metaCtx.fbp,
+          fbc: metaCtx.fbc,
+        },
+        page_url: `${appUrl}/`,
+        content_id: templateId || undefined,
+        content_name: templateName || undefined,
+        content_type: templateId ? 'product' : undefined,
+        value: 1.99,
+        currency: 'USD',
+      }),
+    ]);
 
     return NextResponse.json({ url: session.url });
   } catch (error) {
