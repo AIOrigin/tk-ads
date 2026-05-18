@@ -24,9 +24,10 @@ const META_EVENT_MAP: Record<string, { event: string; custom: boolean }> = {
 // Events that need server-side firing via /api/tt-event.
 // InitiateCheckout and Purchase are excluded — they fire inline
 // from /api/checkout and /api/generate respectively.
+// generation_start is excluded because /api/preview and /api/generate
+// fire CompleteRegistration before calling the video backend.
 const SERVER_SIDE_EVENTS = new Set([
   'view_content',
-  'generation_start',
   'video_download',
 ]);
 
@@ -78,6 +79,10 @@ interface MetaEventParams {
   content_type?: string;
   value?: number;
   currency?: string;
+}
+
+interface MetaEventOptions {
+  eventID: string;
 }
 
 function toMetaParams(eventName: string, props?: EventProperties): MetaEventParams {
@@ -213,6 +218,7 @@ function sendServerEvent(eventName: string, props?: EventProperties): void {
       currency: 'USD',
       ttclid: getTikTokClickId() || undefined,
       ttp: getTikTokTtp() || undefined,
+      page_url: window.location.href,
     }),
   }).catch(() => {
     // Silently fail — server event is supplementary
@@ -258,10 +264,21 @@ export function trackEvent(eventName: string, properties?: EventProperties) {
     const metaMapping = META_EVENT_MAP[eventName];
     if (metaMapping) {
       const metaParams = toMetaParams(eventName, props);
+      const metaOptions: MetaEventOptions | undefined = props?.eventId
+        ? { eventID: String(props.eventId) }
+        : undefined;
       if (metaMapping.custom) {
-        fbq('trackCustom', metaMapping.event, metaParams);
+        if (metaOptions) {
+          fbq('trackCustom', metaMapping.event, metaParams, metaOptions);
+        } else {
+          fbq('trackCustom', metaMapping.event, metaParams);
+        }
       } else {
-        fbq('track', metaMapping.event, metaParams);
+        if (metaOptions) {
+          fbq('track', metaMapping.event, metaParams, metaOptions);
+        } else {
+          fbq('track', metaMapping.event, metaParams);
+        }
       }
     }
   }

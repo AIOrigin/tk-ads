@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getBaseUrl } from '@/lib/server/base-url';
 import { getCurrentUserFromAuthHeader } from '@/lib/server/current-user';
 import { sendTikTokEvent, extractTikTokContext } from '@/lib/server/tiktok-events';
+import { sendMetaEvent, extractMetaContext } from '@/lib/server/meta-events';
 import { getStripeClient } from '@/lib/server/stripe-client';
 import { resolveTaskErrorText } from '@/lib/task-errors';
 
@@ -81,6 +82,7 @@ export async function POST(req: NextRequest) {
     const durationSeconds = formData.get('duration_seconds') as string;
     const photoFile = formData.get('photo') as File;
     const ttEventId = formData.get('tt_event_id') as string | null;
+    const generationEventId = formData.get('generation_event_id') as string | null;
     const ttTemplateId = formData.get('tt_template_id') as string | null;
     const ttTemplateName = formData.get('tt_template_name') as string | null;
     const ttTtclid = formData.get('tt_ttclid') as string | null;
@@ -136,6 +138,48 @@ export async function POST(req: NextRequest) {
         { status: 409 }
       );
     }
+
+    const ttCtx = extractTikTokContext(req);
+    const metaCtx = extractMetaContext(req);
+    const appUrl = getBaseUrl(req);
+
+    sendTikTokEvent({
+      event: 'CompleteRegistration',
+      event_id: generationEventId || undefined,
+      user: {
+        email: currentUser.email,
+        external_id: currentUser.id,
+        ip: ttCtx.ip,
+        user_agent: ttCtx.user_agent,
+        ttclid: ttTtclid || ttCtx.ttclid,
+        ttp: ttTtp || ttCtx.ttp,
+      },
+      page_url: `${appUrl}/`,
+      contents: ttTemplateId
+        ? [{ content_id: ttTemplateId, content_type: 'product', content_name: ttTemplateName || '' }]
+        : undefined,
+      value: 0,
+      currency: 'USD',
+    });
+
+    sendMetaEvent({
+      event: 'CompleteRegistration',
+      event_id: generationEventId || undefined,
+      user: {
+        email: currentUser.email,
+        external_id: currentUser.id,
+        ip: metaCtx.ip,
+        user_agent: metaCtx.user_agent,
+        fbp: metaCtx.fbp,
+        fbc: metaCtx.fbc,
+      },
+      page_url: `${appUrl}/`,
+      content_id: ttTemplateId || undefined,
+      content_name: ttTemplateName || undefined,
+      content_type: ttTemplateId ? 'product' : undefined,
+      value: 0,
+      currency: 'USD',
+    });
 
     await stripe.checkout.sessions.update(sessionId, {
       metadata: {
@@ -214,8 +258,6 @@ export async function POST(req: NextRequest) {
     });
 
     // TikTok Events API — Purchase (server-side, deduped with pixel via event_id)
-    const ttCtx = extractTikTokContext(req);
-    const appUrl = getBaseUrl(req);
     sendTikTokEvent({
       event: 'Purchase',
       event_id: ttEventId || undefined,
@@ -231,6 +273,25 @@ export async function POST(req: NextRequest) {
       contents: ttTemplateId
         ? [{ content_id: ttTemplateId, content_type: 'product', content_name: ttTemplateName || '' }]
         : undefined,
+      value: 1.99,
+      currency: 'USD',
+    });
+
+    sendMetaEvent({
+      event: 'Purchase',
+      event_id: ttEventId || undefined,
+      user: {
+        email: currentUser.email,
+        external_id: currentUser.id,
+        ip: metaCtx.ip,
+        user_agent: metaCtx.user_agent,
+        fbp: metaCtx.fbp,
+        fbc: metaCtx.fbc,
+      },
+      page_url: `${appUrl}/`,
+      content_id: ttTemplateId || undefined,
+      content_name: ttTemplateName || undefined,
+      content_type: ttTemplateId ? 'product' : undefined,
       value: 1.99,
       currency: 'USD',
     });

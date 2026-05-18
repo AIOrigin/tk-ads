@@ -46,6 +46,7 @@ import {
 const allTemplates = templates as Template[];
 const defaultPresetCharacter = getPresetCharacterById(DEFAULT_PRESET_CHARACTER_ID) ?? presetCharacters[0];
 const PAYMENT_EVENT_IDS_KEY = 'dance_payment_event_ids';
+const GENERATION_EVENT_IDS_KEY = 'dance_generation_event_ids';
 const DELIVERY_EMAIL_KEY = 'dance_delivery_email';
 const ACTIVE_ORDER_STATUSES = new Set(['created', 'pending', 'processing', 'queued', 'submitted']);
 const TERMINAL_ORDER_STATUSES = new Set(['completed', 'failed', 'unlocked', 'canceled', 'cancelled', 'invalid']);
@@ -160,6 +161,24 @@ function savePaymentEventId(sessionId: string, eventId: string): void {
   const eventIds = getPaymentEventIds();
   eventIds[sessionId] = eventId;
   localStorage.setItem(PAYMENT_EVENT_IDS_KEY, JSON.stringify(eventIds));
+}
+
+function getGenerationEventIds(): Record<string, string> {
+  try {
+    return JSON.parse(localStorage.getItem(GENERATION_EVENT_IDS_KEY) || '{}');
+  } catch {
+    return {};
+  }
+}
+
+function getGenerationEventId(sessionId: string): string | null {
+  return getGenerationEventIds()[sessionId] ?? null;
+}
+
+function saveGenerationEventId(sessionId: string, eventId: string): void {
+  const eventIds = getGenerationEventIds();
+  eventIds[sessionId] = eventId;
+  localStorage.setItem(GENERATION_EVENT_IDS_KEY, JSON.stringify(eventIds));
 }
 
 function buildFunnelEventProps({
@@ -1026,6 +1045,25 @@ function HomeContent() {
           return;
         }
 
+        const existingGenerationEventId = getGenerationEventId(activeSessionId);
+        const generationEventId = existingGenerationEventId || generateEventId();
+
+        if (!existingGenerationEventId) {
+          trackEvent('generation_start', buildFunnelEventProps({
+            templateId: template.id,
+            templateName: template.name,
+            characterId: recoveredCharacter.id,
+            inputMode: recoveredInputMode,
+            characterSelectionSource: 'restore',
+            extras: {
+              eventId: generationEventId,
+              delivery: 'paid',
+              sessionId: activeSessionId,
+            },
+          }));
+          saveGenerationEventId(activeSessionId, generationEventId);
+        }
+
         const formData = new FormData();
         formData.append('session_id', activeSessionId);
         formData.append('motion_video_url', template.motionVideoUrl);
@@ -1034,6 +1072,7 @@ function HomeContent() {
         formData.append('duration_seconds', String(template.durationSeconds));
         formData.append('photo', photo);
         formData.append('tt_event_id', purchaseEventId);
+        formData.append('generation_event_id', generationEventId);
         formData.append('tt_template_id', template.id);
         formData.append('tt_template_name', template.name);
         const ttclid = getTikTokClickId();
@@ -1078,7 +1117,7 @@ function HomeContent() {
           return;
         }
 
-        trackEvent('generation_start', buildFunnelEventProps({
+        trackEvent('generation_request_accepted', buildFunnelEventProps({
           templateId: template.id,
           templateName: template.name,
           characterId: recoveredCharacter.id,
@@ -1171,9 +1210,9 @@ function HomeContent() {
 
       await saveCurrentSelectionDraft(uploadedPhoto);
 
-      const previewEventId = generateEventId();
-      trackEvent('preview_start', currentEventProps({
-        eventId: previewEventId,
+      const generationEventId = generateEventId();
+      trackEvent('generation_start', currentEventProps({
+        eventId: generationEventId,
         delivery: 'email',
       }));
 
@@ -1188,7 +1227,8 @@ function HomeContent() {
       formData.append('template_name', selectedDance.name);
       formData.append('character_id', selectedCharacter.id);
       formData.append('input_mode', inputMode);
-      formData.append('tt_event_id', previewEventId);
+      formData.append('ad_event_id', generationEventId);
+      formData.append('tt_event_id', generationEventId);
       formData.append('tt_template_id', selectedDance.id);
       formData.append('tt_template_name', selectedDance.name);
 
@@ -1242,7 +1282,7 @@ function HomeContent() {
         email: normalizedEmail,
       });
 
-      trackEvent('generation_start', currentEventProps({
+      trackEvent('generation_request_accepted', currentEventProps({
         taskId: result.taskId ?? result.task_id,
         orderId: result.orderId,
         delivery: 'email',
